@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: pip install ".[dev]"
+      - name: Run tests
+        run: python -m pytest tests/ -v --tb=short
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install ruff
+        run: pip install ruff
+      - name: Ruff check
+        run: ruff check src/ tests/
+      - name: Ruff format check
+        run: ruff format --check src/ tests/
+
+  # "Eat your own dog food" - use engram to analyze engram
+  self-analyze:
+    name: Self-Analysis (Heuristic)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install engram-cli
+        run: pip install .
+      - name: Analyze self (heuristic-only, no model needed)
+        run: engram analyze . --skip-model --org engram-hq/engram-cli
+      - name: Verify JSON output
+        run: |
+          engram analyze . --skip-model --json-only --org engram-hq/engram-cli > /tmp/self-analysis.json
+          python -c "
+          import json
+          with open('/tmp/self-analysis.json') as f:
+              data = json.load(f)
+          assert 'analysis' in data
+          assert data['analysis']['total_files'] > 0
+          assert 'Python' in data['analysis']['languages']
+          print('Self-analysis passed:', data['analysis']['total_files'], 'files,', len(data['analysis']['languages']), 'languages')
+          "
+
+  # Full model test with Ollama (on main branch only)
+  model-test:
+    name: Model Integration Test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install engram-cli
+        run: pip install .
+      - name: Install Ollama
+        run: curl -fsSL https://ollama.com/install.sh | sh
+      - name: Start Ollama server
+        run: |
+          ollama serve &
+          sleep 5
+      - name: Pull model
+        run: ollama pull qwen2.5-coder:7b
+      - name: Analyze self with model
+        run: |
+          engram analyze . --org engram-hq/engram-cli -O /tmp/engram-output
+          ls -la /tmp/engram-output/
+          ls -la /tmp/engram-output/skills/
+          test -f /tmp/engram-output/engram-analysis.json
+          test -f /tmp/engram-output/skills/architecture/SKILL.md
+          echo "Full model test passed!"
