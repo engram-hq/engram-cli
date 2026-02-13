@@ -307,69 +307,133 @@ html, body {
 .md-content hr { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
 .md-content strong { color: var(--text-primary); }
 
-/* Timeline tab */
-.timeline-layout { width: 100%; height: 100%; position: relative; }
-#timeline-graph { width: 100%; height: 100%; }
-.timeline-legend {
-  position: absolute;
-  bottom: 20px;
-  left: 20px;
-  background: rgba(17,17,19,0.9);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 14px 18px;
-  font-size: 12px;
-  z-index: 10;
-  backdrop-filter: blur(10px);
+/* Timeline tab - 3-panel layout */
+.timeline-3panel {
+  display: grid;
+  grid-template-columns: 200px 1fr 320px;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
 }
-.timeline-legend-title {
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 8px;
+.tl-left {
+  background: rgba(255,255,255,0.02);
+  border-right: 1px solid var(--border);
+  padding: 16px;
+  overflow-y: auto;
+}
+.tl-left h4 {
   font-size: 11px;
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  margin-bottom: 10px;
 }
-.legend-item { display: flex; align-items: center; gap: 8px; margin: 4px 0; color: var(--text-secondary); }
-.legend-sphere { width: 10px; height: 10px; border-radius: 50%; }
-.legend-diamond { width: 10px; height: 10px; transform: rotate(45deg); }
-.timeline-controls {
-  position: absolute;
-  top: 16px;
-  right: 16px;
+.tl-org-item {
+  padding: 6px 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 6px;
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+.tl-org-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+.tl-org-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.tl-session-item {
+  padding: 5px 8px 5px 26px;
+  font-size: 11px;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tl-session-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+.tl-session-item.active { color: var(--accent-purple); background: rgba(139,92,246,0.1); }
+.tl-graph {
+  position: relative;
+  overflow: hidden;
+  background: #050508;
+}
+.tl-graph canvas { display: block; }
+.tl-controls {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  gap: 6px;
   z-index: 10;
 }
 .timeline-btn {
-  padding: 6px 14px;
+  padding: 5px 12px;
   background: rgba(17,17,19,0.85);
   border: 1px solid var(--border);
   border-radius: 6px;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 11px;
   cursor: pointer;
   backdrop-filter: blur(10px);
   transition: all 0.15s;
 }
 .timeline-btn:hover { color: var(--text-primary); border-color: var(--border-light); }
 .timeline-btn.active { color: var(--accent-blue); border-color: var(--accent-blue); }
-.timeline-info {
+.tl-legend {
   position: absolute;
-  top: 16px;
-  left: 16px;
-  background: rgba(17,17,19,0.9);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 12px 16px;
-  font-size: 12px;
+  bottom: 10px;
+  left: 10px;
+  font-size: 10px;
+  color: var(--text-muted);
+  background: rgba(9,9,11,0.85);
+  padding: 6px 10px;
+  border-radius: 6px;
   z-index: 10;
-  max-width: 320px;
-  display: none;
-  backdrop-filter: blur(10px);
+  pointer-events: none;
 }
-.timeline-info-title { font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
-.timeline-info-detail { color: var(--text-secondary); line-height: 1.5; }
+.tl-right {
+  background: rgba(255,255,255,0.02);
+  border-left: 1px solid var(--border);
+  padding: 16px;
+  overflow-y: auto;
+}
+.tl-right h3 { font-size: 14px; margin-bottom: 8px; }
+.tl-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.tl-metric-card {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.tl-metric-card .label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; }
+.tl-metric-card .value { font-size: 14px; font-weight: 600; }
+.tl-detail-content {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+.tl-detail-content h1, .tl-detail-content h2 { font-size: 15px; color: var(--text-primary); margin: 12px 0 4px; }
+.tl-detail-content h3, .tl-detail-content h4 { font-size: 13px; color: var(--text-primary); margin: 8px 0 3px; }
+.tl-detail-content p { margin-bottom: 6px; }
+.tl-detail-content code { background: var(--bg-tertiary); padding: 1px 4px; border-radius: 3px; font-size: 12px; }
+.tl-detail-content pre { background: var(--bg-tertiary); padding: 10px; border-radius: 6px; overflow-x: auto; margin: 8px 0; font-size: 12px; }
+.tl-detail-content ul, .tl-detail-content ol { padding-left: 20px; margin-bottom: 8px; }
+.tl-placeholder {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  height: 100%; text-align: center; color: var(--text-muted); font-size: 13px; line-height: 1.6;
+}
+.tl-placeholder .icon { font-size: 32px; margin-bottom: 12px; opacity: 0.5; }
+@media (max-width: 900px) {
+  .timeline-3panel { grid-template-columns: 1fr; grid-template-rows: 120px 1fr 200px; }
+  .tl-left { border-right: none; border-bottom: 1px solid var(--border); }
+  .tl-right { border-left: none; border-top: 1px solid var(--border); }
+}
 
 /* Search tab */
 .search-layout {
@@ -670,22 +734,29 @@ html, body {
 
   <!-- Timeline -->
   <div class="tab-content" data-panel="timeline">
-    <div class="timeline-layout">
-      <div id="timeline-graph"></div>
-      <div class="timeline-controls">
-        <button class="timeline-btn active" id="btn-rotate" onclick="toggleRotate()">Auto-rotate</button>
-        <button class="timeline-btn" id="btn-particles" onclick="toggleParticles()">Particles</button>
-        <button class="timeline-btn" onclick="resetCamera()">Reset view</button>
+    <div class="timeline-3panel">
+      <!-- Left: Org tree -->
+      <div class="tl-left">
+        <h4>Organizations</h4>
+        <div id="tl-org-tree"></div>
       </div>
-      <div class="timeline-info" id="timeline-info">
-        <div class="timeline-info-title" id="timeline-info-title"></div>
-        <div class="timeline-info-detail" id="timeline-info-detail"></div>
+      <!-- Center: 3D graph -->
+      <div class="tl-graph">
+        <div id="timeline-graph" style="width:100%;height:100%;"></div>
+        <div class="tl-controls">
+          <button class="timeline-btn active" id="btn-rotate" onclick="toggleRotate()">Auto-rotate</button>
+          <button class="timeline-btn" id="btn-particles" onclick="toggleParticles()">Particles</button>
+          <button class="timeline-btn" onclick="resetCamera()">Reset view</button>
+        </div>
+        <div class="tl-legend">&#9679; Memory &nbsp; &#9670; Skill &nbsp; # = chronological order</div>
       </div>
-      <div class="timeline-legend">
-        <div class="timeline-legend-title">Legend</div>
-        <div class="legend-item"><div class="legend-sphere" style="background:var(--accent-purple);"></div> Memory</div>
-        <div class="legend-item"><div class="legend-diamond" style="background:var(--accent-blue);"></div> Skill</div>
-        <div class="legend-item" style="margin-top:6px;color:var(--text-muted);font-size:11px;">Node numbers = chronological order</div>
+      <!-- Right: Detail panel -->
+      <div class="tl-right" id="tl-right-panel">
+        <div class="tl-placeholder">
+          <div class="icon">&#128065;</div>
+          <div>Click a node to see details</div>
+          <div>Hover to preview</div>
+        </div>
       </div>
     </div>
   </div>
@@ -1113,27 +1184,17 @@ function initTimeline() {
     .linkColor(link => link.color || 'rgba(255,255,255,0.1)')
     .onNodeHover(node => {
       container.style.cursor = node ? 'pointer' : 'default';
-      const info = document.getElementById('timeline-info');
       if (node) {
-        document.getElementById('timeline-info-title').textContent =
-          `#${node.chronoNum} ${node.label}`;
-        document.getElementById('timeline-info-detail').innerHTML =
-          `<strong>${node.type}</strong> &middot; ${escapeHtml(node.org)}/${escapeHtml(node.repo)}` +
-          (node.date ? `<br>Date: ${node.date}` : '');
-        info.style.display = 'block';
-      } else {
-        info.style.display = 'none';
+        showTimelineDetail(node, true);
       }
     })
     .onNodeClick(node => {
       if (node && node.itemIndex !== undefined) {
-        // Switch to skills tab and show item
-        switchTab('skills');
-        selectItem(node.itemIndex, null);
-        // Highlight in tree
-        const el = document.querySelector(`.tree-item[data-index="${node.itemIndex}"]`);
+        showTimelineDetail(node, false);
+        // Highlight in org tree
+        document.querySelectorAll('.tl-session-item.active').forEach(e => e.classList.remove('active'));
+        const el = document.querySelector(`.tl-session-item[data-index="${node.itemIndex}"]`);
         if (el) {
-          document.querySelectorAll('.tree-item.active').forEach(e => e.classList.remove('active'));
           el.classList.add('active');
           el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
@@ -1187,6 +1248,119 @@ function resetCamera() {
   if (forceGraph) {
     forceGraph.zoomToFit(600, 80);
   }
+}
+
+function buildTimelineOrgTree() {
+  const tree = document.getElementById('tl-org-tree');
+  if (!tree) return;
+
+  // Group items by org, then by type
+  const orgMap = {};
+  allItems.forEach((item, idx) => {
+    if (!orgMap[item.org]) orgMap[item.org] = [];
+    orgMap[item.org].push({ item, index: idx });
+  });
+
+  let html = '';
+  Object.keys(orgMap).sort().forEach(org => {
+    const color = orgColors[org] || '#71717a';
+    const items = orgMap[org];
+    html += `<div class="tl-org-item" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+      <div class="tl-org-dot" style="background:${color};"></div>
+      <span>${escapeHtml(org)}</span>
+      <span style="margin-left:auto;font-size:10px;color:var(--text-muted);">${items.length}</span>
+    </div>`;
+    html += `<div style="display:block;">`;
+    items.forEach(({ item, index }) => {
+      const label = item.name || item.path;
+      const icon = item.type === 'skill' ? '&#9670;' : '&#9679;';
+      html += `<div class="tl-session-item" data-index="${index}" onclick="timelineTreeClick(${index})">${icon} ${escapeHtml(label)}</div>`;
+    });
+    html += `</div>`;
+  });
+
+  tree.innerHTML = html;
+}
+
+function timelineTreeClick(index) {
+  const item = allItems[index];
+  if (!item) return;
+
+  // Show detail in right panel
+  showTimelineDetail({
+    label: item.name || item.path,
+    org: item.org,
+    repo: item.repo,
+    type: item.type,
+    date: item.date,
+    itemIndex: index,
+    chronoNum: index + 1,
+  }, false);
+
+  // Highlight in tree
+  document.querySelectorAll('.tl-session-item.active').forEach(e => e.classList.remove('active'));
+  const el = document.querySelector(`.tl-session-item[data-index="${index}"]`);
+  if (el) el.classList.add('active');
+}
+
+function showTimelineDetail(node, isHover) {
+  const panel = document.getElementById('tl-right-panel');
+  if (!panel) return;
+
+  const item = allItems[node.itemIndex];
+  if (!item) return;
+
+  const color = orgColors[item.org] || '#71717a';
+  const badgeClass = item.type === 'skill' ? 'badge-skill' : 'badge-memory';
+  const badgeLabel = item.type === 'skill' ? 'Skill' : 'Memory';
+
+  // Parse frontmatter
+  const fmEntries = Object.entries(item.frontmatter || {}).filter(([k]) => k !== 'content');
+  let fmHtml = '';
+  if (fmEntries.length > 0) {
+    fmHtml = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px;">`;
+    fmEntries.slice(0, 6).forEach(([k, v]) => {
+      fmHtml += `<div class="tl-metric-card">
+        <div class="label">${escapeHtml(String(k))}</div>
+        <div class="value" style="font-size:12px;">${escapeHtml(String(v).substring(0, 40))}</div>
+      </div>`;
+    });
+    fmHtml += `</div>`;
+  }
+
+  // Render markdown body (truncated for hover, full for click)
+  let bodyText = item.body || '';
+  if (isHover && bodyText.length > 500) {
+    bodyText = bodyText.substring(0, 500) + '\n\n*... click node for full content*';
+  }
+  const renderedBody = (typeof marked !== 'undefined' && marked.parse)
+    ? marked.parse(bodyText) : bodyText.replace(/\n/g, '<br>');
+
+  panel.innerHTML = `
+    <div style="margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <span style="color:${color};font-weight:600;">&#9679;</span>
+        <h3 style="font-size:14px;margin:0;">#${node.chronoNum} ${escapeHtml(item.name || item.path)}</h3>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">
+        <span style="color:${color};">${escapeHtml(item.org)}</span> / ${escapeHtml(item.repo)} / ${escapeHtml(item.path)}
+        <span class="content-type-badge ${badgeClass}" style="font-size:9px;margin-left:6px;">${badgeLabel}</span>
+      </div>
+      ${item.date ? `<div style="font-size:11px;color:var(--text-muted);">Date: ${item.date}</div>` : ''}
+    </div>
+    <div class="tl-metrics">
+      <div class="tl-metric-card">
+        <div class="label">Words</div>
+        <div class="value">${item.wordCount.toLocaleString()}</div>
+      </div>
+      <div class="tl-metric-card">
+        <div class="label">Type</div>
+        <div class="value">${item.type}</div>
+      </div>
+    </div>
+    ${fmHtml}
+    <div class="tl-detail-content">${renderedBody}</div>
+  `;
 }
 
 // ============================================================
@@ -1494,6 +1668,7 @@ function switchTab(name) {
 
   if (name === 'timeline' && !timelineInitialized && allItems.length > 0) {
     timelineInitialized = true;
+    buildTimelineOrgTree();
     // Defer to allow container to render
     requestAnimationFrame(() => {
       setTimeout(initTimeline, 100);
@@ -1545,9 +1720,12 @@ document.addEventListener('keydown', (e) => {
     switchTab('search');
     setTimeout(() => document.getElementById('search-input').focus(), 50);
   }
-  // Escape to close info panel
+  // Escape to reset timeline detail panel
   if (e.key === 'Escape') {
-    document.getElementById('timeline-info').style.display = 'none';
+    const tlPanel = document.getElementById('tl-right-panel');
+    if (tlPanel) {
+      tlPanel.innerHTML = '<div class="tl-placeholder"><div class="icon">&#128065;</div><div>Click a node to see details</div><div>Hover to preview</div></div>';
+    }
   }
   // Number keys for tabs
   if (!e.metaKey && !e.ctrlKey && !e.altKey && document.activeElement.tagName !== 'INPUT') {

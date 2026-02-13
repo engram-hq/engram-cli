@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "engram-cli"
-version = "2.0.0"
+version = "2.1.0"
 description = "AI-powered skill & memory generator for codebases - fully local, no API keys needed"
 readme = "README.md"
 license = "MIT"

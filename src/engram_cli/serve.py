@@ -115,8 +115,8 @@ def start_server(
     viewer_html = VIEWER_TEMPLATE.read_text()
 
     handler = partial(EngramHandler, data=data, viewer_html=viewer_html)
+    HTTPServer.allow_reuse_address = True
     server = HTTPServer(("127.0.0.1", port), handler)
-    server.allow_reuse_address = True
 
     url = f"http://localhost:{port}"
 
