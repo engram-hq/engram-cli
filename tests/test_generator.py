@@ -1,15 +1,12 @@
 """Tests for the skill/memory generator."""
 
-from unittest.mock import MagicMock, patch
-from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
-from engram_cli.analyzer import analyze_repo, RepoAnalysis
+from engram_cli.analyzer import analyze_repo
 from engram_cli.generator import (
     SkillMemoryGenerator,
-    GeneratedSkill,
-    GeneratedMemory,
     GenerationResult,
     _ensure_frontmatter,
 )
@@ -199,7 +196,7 @@ class TestSkillMemoryGenerator:
         def callback(msg, current, total):
             progress_calls.append((msg, current, total))
 
-        result = generator.generate(analysis, progress_callback=callback)
+        generator.generate(analysis, progress_callback=callback)
         assert len(progress_calls) >= 3  # at least arch + patterns + overview
 
     def test_error_handling(self, sample_repo):

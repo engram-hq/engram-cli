@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import subprocess
-import sys
 import time
 from typing import Any
 
@@ -71,7 +70,9 @@ class OllamaClient:
             models = [m.get("name", "") for m in data.get("models", [])]
             # Check exact match or with :latest suffix
             return any(
-                self.model == m or self.model == m.split(":")[0] or f"{self.model}:latest" == m
+                self.model == m
+                or self.model == m.split(":")[0]
+                or f"{self.model}:latest" == m
                 for m in models
             )
         except Exception:
@@ -130,13 +131,17 @@ class OllamaClient:
                 timeout=GENERATE_TIMEOUT,
             )
             if resp.status_code != 200:
-                raise ModelError(f"Ollama returned {resp.status_code}: {resp.text[:200]}")
+                raise ModelError(
+                    f"Ollama returned {resp.status_code}: {resp.text[:200]}"
+                )
             data = resp.json()
             return data.get("response", "")
         except httpx.TimeoutException:
             raise ModelError(f"Model generation timed out after {GENERATE_TIMEOUT}s")
         except httpx.ConnectError:
-            raise ModelError("Cannot connect to Ollama. Is it running? Try: ollama serve")
+            raise ModelError(
+                "Cannot connect to Ollama. Is it running? Try: ollama serve"
+            )
 
     def generate_json(
         self,
@@ -165,7 +170,9 @@ class OllamaClient:
                 timeout=GENERATE_TIMEOUT,
             )
             if resp.status_code != 200:
-                raise ModelError(f"Ollama returned {resp.status_code}: {resp.text[:200]}")
+                raise ModelError(
+                    f"Ollama returned {resp.status_code}: {resp.text[:200]}"
+                )
             data = resp.json()
             text = data.get("response", "")
             return json.loads(text)
@@ -189,5 +196,7 @@ class OllamaClient:
 
         if not self.is_model_available():
             if progress_callback:
-                progress_callback(f"Downloading {self.model} (one-time, ~4.5GB)...", 0, 0)
+                progress_callback(
+                    f"Downloading {self.model} (one-time, ~4.5GB)...", 0, 0
+                )
             self.pull_model(progress_callback)

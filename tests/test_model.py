@@ -1,6 +1,5 @@
 """Tests for the Ollama model client."""
 
-import json
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -31,6 +30,7 @@ class TestOllamaClient:
     @patch("httpx.Client.get")
     def test_is_ollama_running_false(self, mock_get):
         from httpx import ConnectError
+
         mock_get.side_effect = ConnectError("connection refused")
         client = OllamaClient()
         assert client.is_ollama_running() is False
@@ -53,9 +53,7 @@ class TestOllamaClient:
     def test_is_model_available_false(self, mock_get):
         mock_resp = MagicMock()
         mock_resp.status_code = 200
-        mock_resp.json.return_value = {
-            "models": [{"name": "llama3:latest"}]
-        }
+        mock_resp.json.return_value = {"models": [{"name": "llama3:latest"}]}
         mock_get.return_value = mock_resp
         client = OllamaClient(model="qwen2.5-coder:7b")
         assert client.is_model_available() is False
@@ -86,6 +84,7 @@ class TestOllamaClient:
     @patch("httpx.Client.post")
     def test_generate_timeout(self, mock_post):
         from httpx import TimeoutException
+
         mock_post.side_effect = TimeoutException("timed out")
         client = OllamaClient()
         with pytest.raises(ModelError, match="timed out"):

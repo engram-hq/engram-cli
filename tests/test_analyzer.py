@@ -1,12 +1,8 @@
 """Tests for the heuristic analyzer."""
 
-import os
-import tempfile
-from pathlib import Path
-
 import pytest
 
-from engram_cli.analyzer import analyze_repo, RepoAnalysis
+from engram_cli.analyzer import analyze_repo
 
 
 @pytest.fixture
@@ -27,7 +23,9 @@ def sample_python_repo(tmp_path):
     (src / "__init__.py").write_text("__version__ = '1.0.0'")
     (src / "main.py").write_text("from fastapi import FastAPI\napp = FastAPI()\n")
     (src / "models.py").write_text("from sqlalchemy import Column\nclass User: pass\n")
-    (src / "routes.py").write_text("from . import app\n@app.get('/')\ndef root(): pass\n")
+    (src / "routes.py").write_text(
+        "from . import app\n@app.get('/')\ndef root(): pass\n"
+    )
     (src / "services.py").write_text("class UserService: pass\n")
 
     # Tests
@@ -68,7 +66,7 @@ def sample_rust_repo(tmp_path):
     )
     src = tmp_path / "src"
     src.mkdir()
-    (src / "main.rs").write_text("fn main() { println!(\"hello\"); }\n")
+    (src / "main.rs").write_text('fn main() { println!("hello"); }\n')
     (src / "lib.rs").write_text("pub mod storage;\npub mod server;\n")
     (src / "storage.rs").write_text("pub struct Store {}\n")
     (src / "server.rs").write_text("pub struct Server {}\n")
@@ -79,7 +77,7 @@ def sample_rust_repo(tmp_path):
 
     proto = tmp_path / "proto"
     proto.mkdir()
-    (proto / "api.proto").write_text("syntax = \"proto3\";\n")
+    (proto / "api.proto").write_text('syntax = "proto3";\n')
 
     ci = tmp_path / ".github" / "workflows"
     ci.mkdir(parents=True)
@@ -141,7 +139,9 @@ class TestAnalyzeRepo:
         assert "SQLAlchemy" in analysis.frameworks
         assert len(analysis.ci_files) >= 1
         assert len(analysis.docker_files) >= 1
-        assert any("Web application" in p or "Documentation" in p for p in analysis.patterns)
+        assert any(
+            "Web application" in p or "Documentation" in p for p in analysis.patterns
+        )
 
     def test_rust_repo(self, sample_rust_repo):
         analysis = analyze_repo(sample_rust_repo)

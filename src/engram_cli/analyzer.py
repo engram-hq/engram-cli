@@ -10,7 +10,7 @@ import json
 import os
 import re
 import subprocess
-from collections import Counter, defaultdict
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -89,7 +89,10 @@ class RepoAnalysis:
         lines.append(f"Files: {self.total_files}, Directories: {self.total_dirs}")
 
         if self.languages:
-            lang_str = ", ".join(f"{k} ({v:.0f}%)" for k, v in sorted(self.languages.items(), key=lambda x: -x[1])[:8])
+            lang_str = ", ".join(
+                f"{k} ({v:.0f}%)"
+                for k, v in sorted(self.languages.items(), key=lambda x: -x[1])[:8]
+            )
             lines.append(f"Languages: {lang_str}")
 
         if self.frameworks:
@@ -97,7 +100,9 @@ class RepoAnalysis:
 
         if self.top_dirs:
             dirs = sorted(self.top_dirs.items(), key=lambda x: -x[1])[:12]
-            lines.append(f"Top directories: {', '.join(f'{d}/ ({c} files)' for d, c in dirs)}")
+            lines.append(
+                f"Top directories: {', '.join(f'{d}/ ({c} files)' for d, c in dirs)}"
+            )
 
         if self.dependencies:
             for cat, deps in self.dependencies.items():
@@ -105,10 +110,14 @@ class RepoAnalysis:
                     lines.append(f"{cat} deps: {', '.join(deps[:15])}")
 
         if self.has_tests:
-            lines.append(f"Testing: {self.test_framework or 'detected'}, {self.test_file_count} test files in {', '.join(self.test_dirs) or 'various dirs'}")
+            lines.append(
+                f"Testing: {self.test_framework or 'detected'}, {self.test_file_count} test files in {', '.join(self.test_dirs) or 'various dirs'}"
+            )
 
         if self.has_ci:
-            lines.append(f"CI/CD: {self.ci_platform}, files: {', '.join(self.ci_files)}")
+            lines.append(
+                f"CI/CD: {self.ci_platform}, files: {', '.join(self.ci_files)}"
+            )
 
         if self.has_docker:
             lines.append(f"Docker: {', '.join(self.docker_files)}")
@@ -125,10 +134,14 @@ class RepoAnalysis:
             lines.append(f"Config files: {', '.join(self.config_files)}")
 
         if self.commit_count:
-            lines.append(f"Commits: {self.commit_count}, active {self.first_commit_date} to {self.last_commit_date}")
+            lines.append(
+                f"Commits: {self.commit_count}, active {self.first_commit_date} to {self.last_commit_date}"
+            )
 
         if self.contributors:
-            contribs = ", ".join(f"{c['name']} ({c['commits']})" for c in self.contributors[:8])
+            contribs = ", ".join(
+                f"{c['name']} ({c['commits']})" for c in self.contributors[:8]
+            )
             lines.append(f"Contributors: {contribs}")
 
         return "\n".join(lines)
@@ -137,20 +150,68 @@ class RepoAnalysis:
 # --- File tree patterns ---
 
 IGNORE_DIRS = {
-    ".git", "node_modules", "__pycache__", ".venv", "venv", "env",
-    ".tox", ".mypy_cache", ".pytest_cache", ".ruff_cache",
-    "target", "build", "dist", ".next", ".nuxt", ".output",
-    "vendor", "Pods", ".build", ".swiftpm", "DerivedData",
-    "coverage", ".coverage", "htmlcov", ".nyc_output",
-    ".idea", ".vscode", ".vs", ".gradle", ".settings",
+    ".git",
+    "node_modules",
+    "__pycache__",
+    ".venv",
+    "venv",
+    "env",
+    ".tox",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    "target",
+    "build",
+    "dist",
+    ".next",
+    ".nuxt",
+    ".output",
+    "vendor",
+    "Pods",
+    ".build",
+    ".swiftpm",
+    "DerivedData",
+    "coverage",
+    ".coverage",
+    "htmlcov",
+    ".nyc_output",
+    ".idea",
+    ".vscode",
+    ".vs",
+    ".gradle",
+    ".settings",
 }
 
 IGNORE_EXTENSIONS = {
-    ".pyc", ".pyo", ".class", ".o", ".obj", ".a", ".lib",
-    ".so", ".dylib", ".dll", ".exe", ".bin",
-    ".jpg", ".jpeg", ".png", ".gif", ".ico", ".svg", ".webp",
-    ".woff", ".woff2", ".ttf", ".eot",
-    ".zip", ".tar", ".gz", ".bz2", ".xz", ".rar",
+    ".pyc",
+    ".pyo",
+    ".class",
+    ".o",
+    ".obj",
+    ".a",
+    ".lib",
+    ".so",
+    ".dylib",
+    ".dll",
+    ".exe",
+    ".bin",
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".gif",
+    ".ico",
+    ".svg",
+    ".webp",
+    ".woff",
+    ".woff2",
+    ".ttf",
+    ".eot",
+    ".zip",
+    ".tar",
+    ".gz",
+    ".bz2",
+    ".xz",
+    ".rar",
     ".lock",  # keep lock files in count but not in analysis
 }
 
@@ -242,10 +303,9 @@ def _scan_file_tree(root: Path, analysis: RepoAnalysis) -> None:
             # Test detection
             lower = fname.lower()
             lower_rel = rel_file.lower()
-            if (
-                re.search(r"(^test_|_test\.|\.test\.|\.spec\.|_spec\.)", lower)
-                or re.match(r"^(test|tests|__tests__|spec|specs)/", lower_rel)
-            ):
+            if re.search(
+                r"(^test_|_test\.|\.test\.|\.spec\.|_spec\.)", lower
+            ) or re.match(r"^(test|tests|__tests__|spec|specs)/", lower_rel):
                 analysis.has_tests = True
                 if parts and parts[0] not in (".", "src"):
                     test_dirs.add(parts[0])
@@ -285,13 +345,19 @@ def _scan_file_tree(root: Path, analysis: RepoAnalysis) -> None:
                 ci_files.append(rel_file)
 
             # Docker
-            if re.match(r"dockerfile", lower) or lower in ("docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"):
+            if re.match(r"dockerfile", lower) or lower in (
+                "docker-compose.yml",
+                "docker-compose.yaml",
+                "compose.yml",
+                "compose.yaml",
+            ):
                 analysis.has_docker = True
                 docker_files.append(rel_file)
 
             # K8s
             if re.match(r".*\.(yaml|yml)$", lower) and any(
-                kw in lower for kw in ("k8s", "kubernetes", "deploy", "service", "ingress", "helm")
+                kw in lower
+                for kw in ("k8s", "kubernetes", "deploy", "service", "ingress", "helm")
             ):
                 analysis.has_k8s = True
 
@@ -307,18 +373,43 @@ def _scan_file_tree(root: Path, analysis: RepoAnalysis) -> None:
 
             # Config files
             if lower in (
-                "tsconfig.json", ".eslintrc.json", ".eslintrc.js", "eslint.config.js",
-                "prettier.config.js", ".prettierrc", "babel.config.js",
-                "webpack.config.js", "rollup.config.js", "vite.config.ts",
-                "next.config.js", "next.config.mjs", "next.config.ts",
-                "tailwind.config.js", "tailwind.config.ts",
-                "rustfmt.toml", "clippy.toml", ".golangci.yml",
-                "mypy.ini", "ruff.toml", "pyrightconfig.json",
+                "tsconfig.json",
+                ".eslintrc.json",
+                ".eslintrc.js",
+                "eslint.config.js",
+                "prettier.config.js",
+                ".prettierrc",
+                "babel.config.js",
+                "webpack.config.js",
+                "rollup.config.js",
+                "vite.config.ts",
+                "next.config.js",
+                "next.config.mjs",
+                "next.config.ts",
+                "tailwind.config.js",
+                "tailwind.config.ts",
+                "rustfmt.toml",
+                "clippy.toml",
+                ".golangci.yml",
+                "mypy.ini",
+                "ruff.toml",
+                "pyrightconfig.json",
             ):
                 config_files.append(rel_file)
 
             # Entry points
-            if lower in ("main.py", "app.py", "server.py", "index.ts", "index.js", "main.go", "main.rs", "lib.rs", "main.swift", "app.swift"):
+            if lower in (
+                "main.py",
+                "app.py",
+                "server.py",
+                "index.ts",
+                "index.js",
+                "main.go",
+                "main.rs",
+                "lib.rs",
+                "main.swift",
+                "app.swift",
+            ):
                 entry_points.append(rel_file)
 
     analysis.total_files = total_files
@@ -330,9 +421,12 @@ def _scan_file_tree(root: Path, analysis: RepoAnalysis) -> None:
     analysis.docker_files = docker_files
     analysis.config_files = config_files
     analysis.entry_points = entry_points
-    analysis.test_file_count = sum(1 for ext, cnt in extensions.items()
-                                    if ext in (".test.js", ".test.ts", ".spec.js")
-                                    for _ in range(cnt))
+    analysis.test_file_count = sum(
+        1
+        for ext, cnt in extensions.items()
+        if ext in (".test.js", ".test.ts", ".spec.js")
+        for _ in range(cnt)
+    )
     # Re-count test files properly
     analysis.test_file_count = _count_test_files(root)
 
@@ -351,21 +445,33 @@ def _count_test_files(root: Path) -> int:
 
 # Extension -> Language mapping
 EXT_LANG = {
-    ".py": "Python", ".pyi": "Python",
-    ".js": "JavaScript", ".mjs": "JavaScript", ".cjs": "JavaScript",
-    ".ts": "TypeScript", ".tsx": "TypeScript", ".mts": "TypeScript",
+    ".py": "Python",
+    ".pyi": "Python",
+    ".js": "JavaScript",
+    ".mjs": "JavaScript",
+    ".cjs": "JavaScript",
+    ".ts": "TypeScript",
+    ".tsx": "TypeScript",
+    ".mts": "TypeScript",
     ".jsx": "JavaScript",
     ".rs": "Rust",
     ".go": "Go",
-    ".java": "Java", ".kt": "Kotlin", ".kts": "Kotlin",
+    ".java": "Java",
+    ".kt": "Kotlin",
+    ".kts": "Kotlin",
     ".rb": "Ruby",
     ".php": "PHP",
     ".swift": "Swift",
-    ".c": "C", ".h": "C/C++",
-    ".cpp": "C++", ".cc": "C++", ".cxx": "C++", ".hpp": "C++",
+    ".c": "C",
+    ".h": "C/C++",
+    ".cpp": "C++",
+    ".cc": "C++",
+    ".cxx": "C++",
+    ".hpp": "C++",
     ".cs": "C#",
     ".scala": "Scala",
-    ".ex": "Elixir", ".exs": "Elixir",
+    ".ex": "Elixir",
+    ".exs": "Elixir",
     ".erl": "Erlang",
     ".hs": "Haskell",
     ".lua": "Lua",
@@ -375,17 +481,25 @@ EXT_LANG = {
     ".svelte": "Svelte",
     ".proto": "Protocol Buffers",
     ".sql": "SQL",
-    ".sh": "Shell", ".bash": "Shell", ".zsh": "Shell",
-    ".yaml": "YAML", ".yml": "YAML",
+    ".sh": "Shell",
+    ".bash": "Shell",
+    ".zsh": "Shell",
+    ".yaml": "YAML",
+    ".yml": "YAML",
     ".toml": "TOML",
     ".json": "JSON",
     ".md": "Markdown",
-    ".html": "HTML", ".htm": "HTML",
-    ".css": "CSS", ".scss": "SCSS", ".sass": "SCSS", ".less": "LESS",
+    ".html": "HTML",
+    ".htm": "HTML",
+    ".css": "CSS",
+    ".scss": "SCSS",
+    ".sass": "SCSS",
+    ".less": "LESS",
     ".zig": "Zig",
     ".nim": "Nim",
     ".v": "V",
-    ".ml": "OCaml", ".mli": "OCaml",
+    ".ml": "OCaml",
+    ".mli": "OCaml",
 }
 
 
@@ -464,18 +578,34 @@ def _detect_node_frameworks(content: str, analysis: RepoAnalysis) -> None:
 
     # Framework detection
     fw_map = {
-        "next": "Next.js", "react": "React", "vue": "Vue.js",
-        "svelte": "Svelte", "@sveltejs/kit": "SvelteKit",
-        "express": "Express", "fastify": "Fastify", "koa": "Koa",
-        "nuxt": "Nuxt.js", "@angular/core": "Angular",
-        "electron": "Electron", "react-native": "React Native",
-        "gatsby": "Gatsby", "remix": "Remix",
-        "astro": "Astro", "vite": "Vite",
-        "webpack": "Webpack", "rollup": "Rollup", "esbuild": "esbuild",
-        "tailwindcss": "Tailwind CSS", "prisma": "Prisma",
-        "drizzle-orm": "Drizzle ORM", "typeorm": "TypeORM",
-        "jest": "Jest", "vitest": "Vitest", "mocha": "Mocha",
-        "playwright": "Playwright", "cypress": "Cypress",
+        "next": "Next.js",
+        "react": "React",
+        "vue": "Vue.js",
+        "svelte": "Svelte",
+        "@sveltejs/kit": "SvelteKit",
+        "express": "Express",
+        "fastify": "Fastify",
+        "koa": "Koa",
+        "nuxt": "Nuxt.js",
+        "@angular/core": "Angular",
+        "electron": "Electron",
+        "react-native": "React Native",
+        "gatsby": "Gatsby",
+        "remix": "Remix",
+        "astro": "Astro",
+        "vite": "Vite",
+        "webpack": "Webpack",
+        "rollup": "Rollup",
+        "esbuild": "esbuild",
+        "tailwindcss": "Tailwind CSS",
+        "prisma": "Prisma",
+        "drizzle-orm": "Drizzle ORM",
+        "typeorm": "TypeORM",
+        "jest": "Jest",
+        "vitest": "Vitest",
+        "mocha": "Mocha",
+        "playwright": "Playwright",
+        "cypress": "Cypress",
     }
     for dep, fw in fw_map.items():
         if dep in all_deps and fw not in analysis.frameworks:
@@ -492,27 +622,39 @@ def _detect_rust_frameworks(content: str, analysis: RepoAnalysis) -> None:
         analysis.description = analysis.description or desc_match.group(1)
 
     # Extract deps
-    deps = re.findall(r'^(\w[\w-]*)\s*=', content, re.MULTILINE)
+    deps = re.findall(r"^(\w[\w-]*)\s*=", content, re.MULTILINE)
     crate_fw = {
-        "actix-web": "Actix Web", "axum": "Axum", "rocket": "Rocket",
-        "tokio": "Tokio", "async-std": "async-std",
-        "serde": "Serde", "diesel": "Diesel", "sqlx": "SQLx",
-        "tonic": "Tonic (gRPC)", "warp": "Warp",
-        "bevy": "Bevy", "clap": "Clap",
-        "tracing": "Tracing", "tower": "Tower",
+        "actix-web": "Actix Web",
+        "axum": "Axum",
+        "rocket": "Rocket",
+        "tokio": "Tokio",
+        "async-std": "async-std",
+        "serde": "Serde",
+        "diesel": "Diesel",
+        "sqlx": "SQLx",
+        "tonic": "Tonic (gRPC)",
+        "warp": "Warp",
+        "bevy": "Bevy",
+        "clap": "Clap",
+        "tracing": "Tracing",
+        "tower": "Tower",
     }
     for dep in deps:
         if dep in crate_fw and crate_fw[dep] not in analysis.frameworks:
             analysis.frameworks.append(crate_fw[dep])
 
-    analysis.dependencies["crates"] = [d for d in deps if d not in ("name", "version", "edition", "description", "authors", "license")]
+    analysis.dependencies["crates"] = [
+        d
+        for d in deps
+        if d not in ("name", "version", "edition", "description", "authors", "license")
+    ]
 
 
 def _detect_go_frameworks(content: str, analysis: RepoAnalysis) -> None:
     """Detect Go module dependencies."""
     analysis.package_managers.append("Go modules")
 
-    deps = re.findall(r'^\t([\w./\-]+)\s', content, re.MULTILINE)
+    deps = re.findall(r"^\t([\w./\-]+)\s", content, re.MULTILINE)
     go_fw = {
         "github.com/gin-gonic/gin": "Gin",
         "github.com/labstack/echo": "Echo",
@@ -534,21 +676,34 @@ def _detect_go_frameworks(content: str, analysis: RepoAnalysis) -> None:
 
 def _detect_python_frameworks(content: str, analysis: RepoAnalysis) -> None:
     """Detect Python frameworks."""
-    if "package_managers" not in [pm for pm in analysis.package_managers if "pip" in pm]:
+    if "package_managers" not in [
+        pm for pm in analysis.package_managers if "pip" in pm
+    ]:
         analysis.package_managers.append("pip")
 
     # Try pyproject.toml format
     py_fw = {
-        "django": "Django", "flask": "Flask", "fastapi": "FastAPI",
-        "starlette": "Starlette", "tornado": "Tornado",
-        "celery": "Celery", "sqlalchemy": "SQLAlchemy",
-        "pydantic": "Pydantic", "pytest": "pytest",
-        "numpy": "NumPy", "pandas": "pandas",
-        "scikit-learn": "scikit-learn", "torch": "PyTorch",
-        "tensorflow": "TensorFlow", "transformers": "Transformers",
-        "click": "Click", "typer": "Typer",
-        "httpx": "HTTPX", "aiohttp": "aiohttp",
-        "rich": "Rich", "uvicorn": "Uvicorn",
+        "django": "Django",
+        "flask": "Flask",
+        "fastapi": "FastAPI",
+        "starlette": "Starlette",
+        "tornado": "Tornado",
+        "celery": "Celery",
+        "sqlalchemy": "SQLAlchemy",
+        "pydantic": "Pydantic",
+        "pytest": "pytest",
+        "numpy": "NumPy",
+        "pandas": "pandas",
+        "scikit-learn": "scikit-learn",
+        "torch": "PyTorch",
+        "tensorflow": "TensorFlow",
+        "transformers": "Transformers",
+        "click": "Click",
+        "typer": "Typer",
+        "httpx": "HTTPX",
+        "aiohttp": "aiohttp",
+        "rich": "Rich",
+        "uvicorn": "Uvicorn",
     }
 
     found_deps = []
@@ -561,7 +716,7 @@ def _detect_python_frameworks(content: str, analysis: RepoAnalysis) -> None:
                 analysis.frameworks.append(fw)
                 found_deps.append(pkg)
         # requirements.txt style
-        match = re.match(r'^([a-zA-Z0-9_-]+)', line)
+        match = re.match(r"^([a-zA-Z0-9_-]+)", line)
         if match:
             found_deps.append(match.group(1))
 
@@ -574,8 +729,10 @@ def _detect_ruby_frameworks(content: str, analysis: RepoAnalysis) -> None:
     analysis.package_managers.append("Bundler")
     gems = re.findall(r"gem\s+['\"]([^'\"]+)['\"]", content)
     ruby_fw = {
-        "rails": "Ruby on Rails", "sinatra": "Sinatra",
-        "rspec": "RSpec", "sidekiq": "Sidekiq",
+        "rails": "Ruby on Rails",
+        "sinatra": "Sinatra",
+        "rspec": "RSpec",
+        "sidekiq": "Sidekiq",
     }
     for gem in gems:
         if gem in ruby_fw and ruby_fw[gem] not in analysis.frameworks:
@@ -587,9 +744,12 @@ def _detect_java_frameworks(content: str, analysis: RepoAnalysis) -> None:
     """Detect Java/JVM frameworks."""
     analysis.package_managers.append("Maven/Gradle")
     java_patterns = {
-        "spring-boot": "Spring Boot", "spring-framework": "Spring",
-        "quarkus": "Quarkus", "micronaut": "Micronaut",
-        "junit": "JUnit", "mockito": "Mockito",
+        "spring-boot": "Spring Boot",
+        "spring-framework": "Spring",
+        "quarkus": "Quarkus",
+        "micronaut": "Micronaut",
+        "junit": "JUnit",
+        "mockito": "Mockito",
     }
     lower = content.lower()
     for pattern, fw in java_patterns.items():
@@ -612,15 +772,21 @@ def _detect_php_frameworks(content: str, analysis: RepoAnalysis) -> None:
     analysis.package_managers.append("Composer")
     try:
         pkg = json.loads(content)
-        deps = list(pkg.get("require", {}).keys()) + list(pkg.get("require-dev", {}).keys())
+        deps = list(pkg.get("require", {}).keys()) + list(
+            pkg.get("require-dev", {}).keys()
+        )
         php_fw = {
-            "laravel/framework": "Laravel", "symfony/framework-bundle": "Symfony",
-            "slim/slim": "Slim", "phpunit/phpunit": "PHPUnit",
+            "laravel/framework": "Laravel",
+            "symfony/framework-bundle": "Symfony",
+            "slim/slim": "Slim",
+            "phpunit/phpunit": "PHPUnit",
         }
         for dep in deps:
             if dep in php_fw and php_fw[dep] not in analysis.frameworks:
                 analysis.frameworks.append(php_fw[dep])
-        analysis.dependencies["composer"] = [d for d in deps if not d.startswith("php")][:20]
+        analysis.dependencies["composer"] = [
+            d for d in deps if not d.startswith("php")
+        ][:20]
     except (json.JSONDecodeError, ValueError):
         pass
 
@@ -652,7 +818,11 @@ def _detect_patterns(root: Path, analysis: RepoAnalysis) -> None:
         patterns.append("Service layer")
     if "repositories" in dirs or "repos" in dirs:
         patterns.append("Repository pattern")
-    if {"domain", "application", "infrastructure"} <= dirs or {"domain", "ports", "adapters"} <= dirs:
+    if {"domain", "application", "infrastructure"} <= dirs or {
+        "domain",
+        "ports",
+        "adapters",
+    } <= dirs:
         patterns.append("Hexagonal / Clean architecture")
     if "cmd" in dirs:
         patterns.append("Go cmd pattern (multi-binary)")
@@ -687,8 +857,13 @@ def _detect_patterns(root: Path, analysis: RepoAnalysis) -> None:
 def _read_key_files(root: Path, analysis: RepoAnalysis) -> None:
     """Read content of key files for model context."""
     key_files = [
-        "README.md", "CONTRIBUTING.md", "ARCHITECTURE.md",
-        "package.json", "Cargo.toml", "go.mod", "pyproject.toml",
+        "README.md",
+        "CONTRIBUTING.md",
+        "ARCHITECTURE.md",
+        "package.json",
+        "Cargo.toml",
+        "go.mod",
+        "pyproject.toml",
     ]
     for fname in key_files:
         fpath = root / fname
@@ -711,8 +886,19 @@ def _extract_git_metadata(root: Path, analysis: RepoAnalysis) -> None:
     try:
         # Recent commits
         result = subprocess.run(
-            ["git", "log", "--oneline", "--no-decorate", "-30", "--format=%H|%an|%ad|%s", "--date=short"],
-            cwd=root, capture_output=True, text=True, timeout=10,
+            [
+                "git",
+                "log",
+                "--oneline",
+                "--no-decorate",
+                "-30",
+                "--format=%H|%an|%ad|%s",
+                "--date=short",
+            ],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         if result.returncode == 0:
             for line in result.stdout.strip().split("\n"):
@@ -720,17 +906,22 @@ def _extract_git_metadata(root: Path, analysis: RepoAnalysis) -> None:
                     continue
                 parts = line.split("|", 3)
                 if len(parts) >= 4:
-                    analysis.recent_commits.append({
-                        "hash": parts[0][:8],
-                        "author": parts[1],
-                        "date": parts[2],
-                        "message": parts[3][:120],
-                    })
+                    analysis.recent_commits.append(
+                        {
+                            "hash": parts[0][:8],
+                            "author": parts[1],
+                            "date": parts[2],
+                            "message": parts[3][:120],
+                        }
+                    )
 
         # Commit count
         result = subprocess.run(
             ["git", "rev-list", "--count", "HEAD"],
-            cwd=root, capture_output=True, text=True, timeout=10,
+            cwd=root,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         if result.returncode == 0:
             analysis.commit_count = int(result.stdout.strip())
@@ -738,7 +929,10 @@ def _extract_git_metadata(root: Path, analysis: RepoAnalysis) -> None:
         # Date range
         result = subprocess.run(
             ["git", "log", "--reverse", "--format=%ad", "--date=short", "-1"],
-            cwd=root, capture_output=True, text=True, timeout=10,
+            cwd=root,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         if result.returncode == 0 and result.stdout.strip():
             analysis.first_commit_date = result.stdout.strip()
@@ -749,16 +943,21 @@ def _extract_git_metadata(root: Path, analysis: RepoAnalysis) -> None:
         # Contributors (top by commit count)
         result = subprocess.run(
             ["git", "shortlog", "-sn", "--no-merges", "HEAD"],
-            cwd=root, capture_output=True, text=True, timeout=10,
+            cwd=root,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         if result.returncode == 0:
             for line in result.stdout.strip().split("\n")[:10]:
                 match = re.match(r"\s*(\d+)\s+(.*)", line)
                 if match:
-                    analysis.contributors.append({
-                        "name": match.group(2).strip(),
-                        "commits": int(match.group(1)),
-                    })
+                    analysis.contributors.append(
+                        {
+                            "name": match.group(2).strip(),
+                            "commits": int(match.group(1)),
+                        }
+                    )
 
     except (subprocess.TimeoutExpired, FileNotFoundError):
         pass

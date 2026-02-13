@@ -25,6 +25,7 @@ from .prompts import (
 @dataclass
 class GeneratedSkill:
     """A generated skill document."""
+
     org: str
     repo: str
     tier: int
@@ -46,6 +47,7 @@ class GeneratedSkill:
 @dataclass
 class GeneratedMemory:
     """A generated memory document."""
+
     org: str
     repo: str
     path: str
@@ -65,6 +67,7 @@ class GeneratedMemory:
 @dataclass
 class GenerationResult:
     """Complete generation output."""
+
     skills: list[GeneratedSkill] = field(default_factory=list)
     memories: list[GeneratedMemory] = field(default_factory=list)
     model_used: str = ""
@@ -95,6 +98,7 @@ class SkillMemoryGenerator:
     ) -> GenerationResult:
         """Generate all skills and memories for a repo analysis."""
         import time
+
         start = time.time()
 
         result = GenerationResult(model_used=self.client.model)
@@ -143,26 +147,39 @@ class SkillMemoryGenerator:
         return steps
 
     def _gen_architecture(
-        self, analysis: RepoAnalysis, context: str,
-        org: str, repo: str, today: str,
+        self,
+        analysis: RepoAnalysis,
+        context: str,
+        org: str,
+        repo: str,
+        today: str,
     ) -> GeneratedSkill:
         prompt = architecture_skill_prompt(context, analysis.readme_excerpt)
         content = self.client.generate(prompt, system=SYSTEM_PROMPT)
-        content = _ensure_frontmatter(content, {
-            "name": f"{repo}-architecture",
-            "description": f"Architecture overview for {repo}",
-            "last_updated": today,
-        })
+        content = _ensure_frontmatter(
+            content,
+            {
+                "name": f"{repo}-architecture",
+                "description": f"Architecture overview for {repo}",
+                "last_updated": today,
+            },
+        )
         return GeneratedSkill(
-            org=org, repo=repo, tier=2,
+            org=org,
+            repo=repo,
+            tier=2,
             path="architecture/SKILL.md",
             name="architecture.md",
             content=content,
         )
 
     def _gen_patterns(
-        self, analysis: RepoAnalysis, context: str,
-        org: str, repo: str, today: str,
+        self,
+        analysis: RepoAnalysis,
+        context: str,
+        org: str,
+        repo: str,
+        today: str,
     ) -> GeneratedSkill:
         key_files = "\n".join(
             f"--- {name} ---\n{content[:1000]}"
@@ -170,59 +187,85 @@ class SkillMemoryGenerator:
         )
         prompt = patterns_skill_prompt(context, key_files)
         content = self.client.generate(prompt, system=SYSTEM_PROMPT)
-        content = _ensure_frontmatter(content, {
-            "name": f"{repo}-patterns",
-            "description": f"Code patterns and conventions for {repo}",
-            "last_updated": today,
-        })
+        content = _ensure_frontmatter(
+            content,
+            {
+                "name": f"{repo}-patterns",
+                "description": f"Code patterns and conventions for {repo}",
+                "last_updated": today,
+            },
+        )
         return GeneratedSkill(
-            org=org, repo=repo, tier=2,
+            org=org,
+            repo=repo,
+            tier=2,
             path="patterns/SKILL.md",
             name="patterns.md",
             content=content,
         )
 
     def _gen_testing(
-        self, analysis: RepoAnalysis, context: str,
-        org: str, repo: str, today: str,
+        self,
+        analysis: RepoAnalysis,
+        context: str,
+        org: str,
+        repo: str,
+        today: str,
     ) -> GeneratedSkill:
         prompt = testing_skill_prompt(context)
         content = self.client.generate(prompt, system=SYSTEM_PROMPT)
-        content = _ensure_frontmatter(content, {
-            "name": f"{repo}-testing",
-            "description": f"Testing strategy for {repo}",
-            "last_updated": today,
-        })
+        content = _ensure_frontmatter(
+            content,
+            {
+                "name": f"{repo}-testing",
+                "description": f"Testing strategy for {repo}",
+                "last_updated": today,
+            },
+        )
         return GeneratedSkill(
-            org=org, repo=repo, tier=2,
+            org=org,
+            repo=repo,
+            tier=2,
             path="testing/SKILL.md",
             name="testing.md",
             content=content,
         )
 
     def _gen_overview_memory(
-        self, analysis: RepoAnalysis, context: str,
-        org: str, repo: str, today: str,
+        self,
+        analysis: RepoAnalysis,
+        context: str,
+        org: str,
+        repo: str,
+        today: str,
     ) -> GeneratedMemory:
         prompt = overview_memory_prompt(context, analysis.readme_excerpt)
         content = self.client.generate(prompt, system=SYSTEM_PROMPT)
-        content = _ensure_frontmatter(content, {
-            "date": today,
-            "type": "exploration",
-            "model": f"engram-local ({self.client.model})",
-            "cost_usd": "0",
-        })
+        content = _ensure_frontmatter(
+            content,
+            {
+                "date": today,
+                "type": "exploration",
+                "model": f"engram-local ({self.client.model})",
+                "cost_usd": "0",
+            },
+        )
         fname = f"{today}-{repo}-overview.md"
         return GeneratedMemory(
-            org=org, repo=".memory",
+            org=org,
+            repo=".memory",
             path=f"sessions/{fname}",
             name=fname,
             content=content,
         )
 
     def _gen_activity_memory(
-        self, analysis: RepoAnalysis, context: str,
-        org: str, repo: str, today: str,
+        self,
+        analysis: RepoAnalysis,
+        context: str,
+        org: str,
+        repo: str,
+        today: str,
     ) -> GeneratedMemory:
         commits_text = "\n".join(
             f"- {c['date']} {c['author']}: {c['message']}"
@@ -230,15 +273,19 @@ class SkillMemoryGenerator:
         )
         prompt = activity_memory_prompt(context, commits_text)
         content = self.client.generate(prompt, system=SYSTEM_PROMPT)
-        content = _ensure_frontmatter(content, {
-            "date": today,
-            "type": "activity-analysis",
-            "model": f"engram-local ({self.client.model})",
-            "cost_usd": "0",
-        })
+        content = _ensure_frontmatter(
+            content,
+            {
+                "date": today,
+                "type": "activity-analysis",
+                "model": f"engram-local ({self.client.model})",
+                "cost_usd": "0",
+            },
+        )
         fname = f"{today}-{repo}-activity.md"
         return GeneratedMemory(
-            org=org, repo=".memory",
+            org=org,
+            repo=".memory",
             path=f"sessions/{fname}",
             name=fname,
             content=content,

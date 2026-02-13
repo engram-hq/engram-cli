@@ -12,7 +12,6 @@ import json
 import os
 import shutil
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 
@@ -22,7 +21,6 @@ from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn
 from rich.table import Table
 from rich.tree import Tree
-from rich.markdown import Markdown
 
 from . import __version__
 from .analyzer import analyze_repo
@@ -36,9 +34,10 @@ def _clone_repo(url: str, dest: Path) -> Path:
     """Clone a git repository to dest. Returns clone path."""
     # Parse GitHub URL to get org/repo
     import re
+
     match = re.match(r"(?:https?://)?github\.com/([^/]+)/([^/\s#?]+)", url)
     if match:
-        owner, repo = match.group(1), match.group(2).rstrip(".git")
+        repo = match.group(2).rstrip(".git")
         clone_dir = dest / repo
     else:
         clone_dir = dest / "repo"
@@ -46,7 +45,9 @@ def _clone_repo(url: str, dest: Path) -> Path:
     console.print(f"  Cloning {url}...", style="dim")
     result = subprocess.run(
         ["git", "clone", "--depth=50", "--single-branch", url, str(clone_dir)],
-        capture_output=True, text=True, timeout=120,
+        capture_output=True,
+        text=True,
+        timeout=120,
     )
     if result.returncode != 0:
         raise click.ClickException(f"Git clone failed: {result.stderr[:200]}")
@@ -63,10 +64,13 @@ def _resolve_repo_path(target: str) -> tuple[Path, str | None, bool]:
     """
     # GitHub URL
     if "github.com/" in target or (
-        "/" in target and not target.startswith("/") and not target.startswith(".")
+        "/" in target
+        and not target.startswith("/")
+        and not target.startswith(".")
         and not Path(target).exists()
     ):
         import re
+
         match = re.match(r"(?:https?://)?(?:github\.com/)?([^/]+)/([^/\s#?]+)", target)
         if match:
             owner, repo = match.group(1), match.group(2).rstrip(".git")
@@ -97,11 +101,32 @@ def cli():
 @click.argument("target", default=".")
 @click.option("--model", "-m", default=DEFAULT_MODEL, help="Ollama model name")
 @click.option("--org", "-o", default=None, help="Organization name for output")
-@click.option("--output", "-O", default=None, help="Output directory for generated files")
-@click.option("--format", "-f", "fmt", type=click.Choice(["json", "markdown", "both"]), default="both", help="Output format")
-@click.option("--json-only", is_flag=True, help="Output raw JSON to stdout (for piping)")
-@click.option("--skip-model", is_flag=True, help="Heuristic-only analysis, no model inference")
-def analyze(target: str, model: str, org: str | None, output: str | None, fmt: str, json_only: bool, skip_model: bool):
+@click.option(
+    "--output", "-O", default=None, help="Output directory for generated files"
+)
+@click.option(
+    "--format",
+    "-f",
+    "fmt",
+    type=click.Choice(["json", "markdown", "both"]),
+    default="both",
+    help="Output format",
+)
+@click.option(
+    "--json-only", is_flag=True, help="Output raw JSON to stdout (for piping)"
+)
+@click.option(
+    "--skip-model", is_flag=True, help="Heuristic-only analysis, no model inference"
+)
+def analyze(
+    target: str,
+    model: str,
+    org: str | None,
+    output: str | None,
+    fmt: str,
+    json_only: bool,
+    skip_model: bool,
+):
     """Analyze a repository and generate skills + memories.
 
     TARGET can be a local path, GitHub URL, or owner/repo shorthand.
@@ -121,10 +146,12 @@ def analyze(target: str, model: str, org: str | None, output: str | None, fmt: s
         # Resolve target
         if not json_only:
             console.print()
-            console.print(Panel.fit(
-                f"[bold cyan]Engram v{__version__}[/] - Local AI Code Analyzer",
-                border_style="cyan",
-            ))
+            console.print(
+                Panel.fit(
+                    f"[bold cyan]Engram v{__version__}[/] - Local AI Code Analyzer",
+                    border_style="cyan",
+                )
+            )
 
         repo_path, detected_org, is_temp = _resolve_repo_path(target)
         org = org or detected_org or repo_path.name
@@ -178,7 +205,9 @@ def analyze(target: str, model: str, org: str | None, output: str | None, fmt: s
             except ModelError as e:
                 raise click.ClickException(str(e))
 
-            progress.update(setup_task, description=f"Model ready: {model}", completed=True)
+            progress.update(
+                setup_task, description=f"Model ready: {model}", completed=True
+            )
 
         # Generate skills and memories
         generator = SkillMemoryGenerator(client, org_name=org)
@@ -193,7 +222,9 @@ def analyze(target: str, model: str, org: str | None, output: str | None, fmt: s
             gen_task = progress.add_task("Generating...", total=5)
 
             def on_gen_progress(status, current, total):
-                progress.update(gen_task, description=status, completed=current, total=total)
+                progress.update(
+                    gen_task, description=status, completed=current, total=total
+                )
 
             result = generator.generate(analysis, progress_callback=on_gen_progress)
             progress.update(gen_task, description="Done!", completed=gen_task)
@@ -244,12 +275,17 @@ def models():
         console.print("[green]Ollama is running[/]")
         try:
             import httpx
+
             resp = httpx.get(f"{client.base_url}/api/tags", timeout=5)
             models = resp.json().get("models", [])
             if models:
-                console.print(f"Installed models: {', '.join(m['name'] for m in models)}")
+                console.print(
+                    f"Installed models: {', '.join(m['name'] for m in models)}"
+                )
             else:
-                console.print("[yellow]No models installed. Run: ollama pull qwen2.5-coder:7b[/]")
+                console.print(
+                    "[yellow]No models installed. Run: ollama pull qwen2.5-coder:7b[/]"
+                )
         except Exception:
             pass
     else:
@@ -276,17 +312,25 @@ def _print_analysis_summary(analysis) -> None:
     table.add_row("Files / Dirs", f"{analysis.total_files:,} / {analysis.total_dirs:,}")
 
     if analysis.languages:
-        langs = ", ".join(f"{k} ({v:.0f}%)" for k, v in sorted(analysis.languages.items(), key=lambda x: -x[1])[:5])
+        langs = ", ".join(
+            f"{k} ({v:.0f}%)"
+            for k, v in sorted(analysis.languages.items(), key=lambda x: -x[1])[:5]
+        )
         table.add_row("Languages", langs)
 
     if analysis.frameworks:
         table.add_row("Frameworks", ", ".join(analysis.frameworks[:8]))
 
     if analysis.has_tests:
-        table.add_row("Testing", f"{analysis.test_framework or 'detected'} ({analysis.test_file_count} files)")
+        table.add_row(
+            "Testing",
+            f"{analysis.test_framework or 'detected'} ({analysis.test_file_count} files)",
+        )
 
     if analysis.has_ci:
-        table.add_row("CI/CD", f"{analysis.ci_platform} ({len(analysis.ci_files)} workflows)")
+        table.add_row(
+            "CI/CD", f"{analysis.ci_platform} ({len(analysis.ci_files)} workflows)"
+        )
 
     if analysis.has_docker:
         table.add_row("Docker", ", ".join(analysis.docker_files[:3]))
@@ -324,12 +368,14 @@ def _print_heuristic_summary(analysis) -> None:
 def _print_generation_result(result, org: str) -> None:
     """Print generation results."""
     console.print()
-    console.print(Panel.fit(
-        f"[bold green]Generated {len(result.skills)} skills + {len(result.memories)} memories[/]\n"
-        f"Model: {result.model_used} | Time: {result.generation_time_seconds:.1f}s | Cost: $0.00",
-        border_style="green",
-        title=f"Results for {org}",
-    ))
+    console.print(
+        Panel.fit(
+            f"[bold green]Generated {len(result.skills)} skills + {len(result.memories)} memories[/]\n"
+            f"Model: {result.model_used} | Time: {result.generation_time_seconds:.1f}s | Cost: $0.00",
+            border_style="green",
+            title=f"Results for {org}",
+        )
+    )
 
     if result.skills:
         console.print()
