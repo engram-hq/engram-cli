@@ -42,7 +42,9 @@ def _clone_repo(url: str, dest: Path) -> Path:
     else:
         clone_dir = dest / "repo"
 
-    console.print(f"  Cloning {url}...", style="dim")
+    import sys
+
+    print(f"  Cloning {url}...", file=sys.stderr)
     result = subprocess.run(
         ["git", "clone", "--depth=50", "--single-branch", url, str(clone_dir)],
         capture_output=True,
