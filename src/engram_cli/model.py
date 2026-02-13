@@ -16,7 +16,7 @@ import httpx
 DEFAULT_MODEL = "qwen2.5-coder:7b"
 OLLAMA_BASE_URL = "http://localhost:11434"
 PULL_TIMEOUT = 600  # 10 minutes for model download
-GENERATE_TIMEOUT = 120  # 2 minutes per generation
+GENERATE_TIMEOUT = 300  # 5 minutes per generation (CI runners are slow)
 
 
 class ModelError(Exception):
