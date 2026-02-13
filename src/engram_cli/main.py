@@ -295,6 +295,78 @@ def models():
 
 
 @cli.command()
+@click.argument("data_dir", default="engram-output", type=click.Path())
+@click.option("--port", "-p", default=8420, help="Port to serve on")
+def serve(data_dir: str, port: int):
+    """Start a local browser for viewing analyzed repos.
+
+    DATA_DIR is the engram output directory (default: engram-output/).
+
+    Examples:
+
+        engram serve
+
+        engram serve /tmp/engram-output --port 9000
+
+        engram serve engram-output/pallets/flask
+    """
+    from .serve import start_server
+
+    path = Path(data_dir).resolve()
+    if not path.is_dir():
+        raise click.ClickException(f"Not a directory: {data_dir}")
+
+    console.print()
+    console.print(
+        Panel.fit(
+            "[bold cyan]Engram Viewer[/] - Local Knowledge Browser",
+            border_style="cyan",
+        )
+    )
+    console.print(f"  Serving [bold]{path}[/]")
+    console.print(f"  Open [bold cyan]http://localhost:{port}[/] in your browser")
+    console.print("  Press [bold]Ctrl+C[/] to stop")
+    console.print()
+
+    start_server(path, port=port, open_browser=False)
+
+
+@cli.command()
+@click.argument("data_dir", default="engram-output", type=click.Path())
+@click.option("--port", "-p", default=8420, help="Port to serve on")
+def browse(data_dir: str, port: int):
+    """Open the visual browser for analyzed repos (auto-opens browser).
+
+    Same as 'engram serve' but automatically opens your default browser.
+
+    Examples:
+
+        engram browse
+
+        engram browse /tmp/engram-output
+    """
+    from .serve import start_server
+
+    path = Path(data_dir).resolve()
+    if not path.is_dir():
+        raise click.ClickException(f"Not a directory: {data_dir}")
+
+    console.print()
+    console.print(
+        Panel.fit(
+            "[bold cyan]Engram Viewer[/] - Local Knowledge Browser",
+            border_style="cyan",
+        )
+    )
+    console.print(f"  Serving [bold]{path}[/]")
+    console.print(f"  Opening [bold cyan]http://localhost:{port}[/] in browser...")
+    console.print("  Press [bold]Ctrl+C[/] to stop")
+    console.print()
+
+    start_server(path, port=port, open_browser=True)
+
+
+@cli.command()
 def version():
     """Show version information."""
     console.print(f"engram-cli v{__version__}")
