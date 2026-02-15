@@ -10,7 +10,7 @@ Point Engram at any codebase and it generates structured **skills** (architectur
 $ engram analyze fastapi/fastapi
 
 ╭────────────────────────────────────────╮
-│ Engram v2.1.0 - Local AI Code Analyzer │
+│ Engram v2.1.3 - Local AI Code Analyzer │
 ╰────────────────────────────────────────╯
 
 Phase 1: Heuristic Analysis

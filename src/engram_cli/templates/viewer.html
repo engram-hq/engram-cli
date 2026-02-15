@@ -1175,6 +1175,20 @@ function initTimeline() {
 
       return group;
     })
+    .nodeLabel(node => {
+      const item = allItems[node.itemIndex];
+      if (!item) return '';
+      const icon = node.type === 'skill' ? '&#9889;' : '&#128218;';
+      const fm = item.frontmatter || {};
+      let html = '<div style="background:rgba(9,9,11,0.95);padding:10px 14px;border-radius:10px;border:1px solid ' + node.color + '44;color:#fafafa;font-size:13px;max-width:280px;font-family:-apple-system,sans-serif;box-shadow:0 0 20px ' + node.color + '22;">';
+      html += '<div style="font-weight:700;margin-bottom:4px;color:' + node.color + ';">' + icon + ' ' + (item.name || item.path) + '</div>';
+      html += '<div style="color:#a1a1aa;font-size:11px;margin-bottom:2px;">' + item.org + ' / ' + item.repo + '</div>';
+      if (item.date) html += '<div style="color:#71717a;font-size:10px;">' + item.date + '</div>';
+      if (fm.model) html += '<div style="color:#71717a;font-size:10px;">Model: ' + fm.model + '</div>';
+      html += '<div style="color:#71717a;font-size:10px;">' + item.wordCount.toLocaleString() + ' words</div>';
+      html += '</div>';
+      return html;
+    })
     .linkWidth(0.4)
     .linkOpacity(0.25)
     .linkDirectionalParticles(particlesEnabled ? 2 : 0)
@@ -1191,6 +1205,7 @@ function initTimeline() {
     .onNodeClick(node => {
       if (node && node.itemIndex !== undefined) {
         showTimelineDetail(node, false);
+        flyToNode(node);
         // Highlight in org tree
         document.querySelectorAll('.tl-session-item.active').forEach(e => e.classList.remove('active'));
         const el = document.querySelector(`.tl-session-item[data-index="${node.itemIndex}"]`);
@@ -1250,6 +1265,89 @@ function resetCamera() {
   }
 }
 
+function flyToNode(node) {
+  if (!forceGraph || !node) return;
+  const controls = forceGraph.controls();
+  if (controls) controls.autoRotate = false;
+
+  const nx = node.x || 0, ny = node.y || 0, nz = node.z || 0;
+  const dist = 100;
+  const hyp = Math.hypot(nx, ny, nz);
+  let camPos;
+  if (hyp < 1) {
+    camPos = { x: 0, y: 0, z: dist };
+  } else {
+    const ratio = 1 + dist / hyp;
+    camPos = { x: nx * ratio, y: ny * ratio, z: nz * ratio };
+  }
+
+  forceGraph.cameraPosition(camPos, { x: nx, y: ny, z: nz }, 800);
+  setTimeout(() => { if (controls) controls.autoRotate = autoRotate; }, 1200);
+}
+
+function flyToOrg(orgName) {
+  if (!forceGraph) return;
+  const gdata = forceGraph.graphData();
+  const targets = gdata.nodes.filter(n => n.org === orgName);
+  if (!targets.length) return;
+
+  const cx = targets.reduce((s, n) => s + (n.x || 0), 0) / targets.length;
+  const cy = targets.reduce((s, n) => s + (n.y || 0), 0) / targets.length;
+  const cz = targets.reduce((s, n) => s + (n.z || 0), 0) / targets.length;
+  const spread = Math.max(
+    ...targets.map(n => Math.hypot((n.x||0) - cx, (n.y||0) - cy, (n.z||0) - cz)),
+    30
+  );
+  const dist = spread * 2.5;
+  const hyp = Math.hypot(cx, cy, cz);
+
+  const controls = forceGraph.controls();
+  if (controls) controls.autoRotate = false;
+
+  let camPos;
+  if (hyp < 1) {
+    camPos = { x: 0, y: 0, z: dist };
+  } else {
+    const ratio = 1 + dist / hyp;
+    camPos = { x: cx * ratio, y: cy * ratio, z: cz * ratio };
+  }
+
+  forceGraph.cameraPosition(camPos, { x: cx, y: cy, z: cz }, 800);
+  setTimeout(() => { if (controls) controls.autoRotate = autoRotate; }, 1200);
+}
+
+function focusNode(index) {
+  const item = allItems[index];
+  if (!item) return;
+
+  // Highlight in sidebar tree
+  document.querySelectorAll('.tl-session-item.active').forEach(e => e.classList.remove('active'));
+  const el = document.querySelector(`.tl-session-item[data-index="${index}"]`);
+  if (el) el.classList.add('active');
+
+  // Fly camera to node in graph
+  if (forceGraph) {
+    const gdata = forceGraph.graphData();
+    const node = gdata.nodes.find(n => n.itemIndex === index);
+    if (node) {
+      flyToNode(node);
+      showTimelineDetail(node, false);
+      return;
+    }
+  }
+
+  // Fallback: show detail even without graph node
+  showTimelineDetail({
+    label: item.name || item.path,
+    org: item.org,
+    repo: item.repo,
+    type: item.type,
+    date: item.date,
+    itemIndex: index,
+    chronoNum: index + 1,
+  }, false);
+}
+
 function buildTimelineOrgTree() {
   const tree = document.getElementById('tl-org-tree');
   if (!tree) return;
@@ -1265,7 +1363,7 @@ function buildTimelineOrgTree() {
   Object.keys(orgMap).sort().forEach(org => {
     const color = orgColors[org] || '#71717a';
     const items = orgMap[org];
-    html += `<div class="tl-org-item" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+    html += `<div class="tl-org-item" onclick="flyToOrg('${org.replace(/'/g, "\\'")}'); var s=this.nextElementSibling; s.style.display=s.style.display==='none'?'block':'none'">
       <div class="tl-org-dot" style="background:${color};"></div>
       <span>${escapeHtml(org)}</span>
       <span style="margin-left:auto;font-size:10px;color:var(--text-muted);">${items.length}</span>
@@ -1274,7 +1372,7 @@ function buildTimelineOrgTree() {
     items.forEach(({ item, index }) => {
       const label = item.name || item.path;
       const icon = item.type === 'skill' ? '&#9670;' : '&#9679;';
-      html += `<div class="tl-session-item" data-index="${index}" onclick="timelineTreeClick(${index})">${icon} ${escapeHtml(label)}</div>`;
+      html += `<div class="tl-session-item" data-index="${index}" onclick="focusNode(${index})">${icon} ${escapeHtml(label)}</div>`;
     });
     html += `</div>`;
   });
