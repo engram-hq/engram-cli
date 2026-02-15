@@ -39,9 +39,8 @@ brew install ollama          # macOS
 # or: curl -fsSL https://ollama.com/install.sh | sh  # Linux
 
 # 2. Install Engram CLI
-pip install engram-cli       # from PyPI
-# or from source:
-# pipx install git+https://github.com/engram-hq/engram-cli.git
+brew install pipx && pipx install engram-cli   # macOS (recommended)
+# or: pip install engram-cli                   # Linux / virtualenv
 ```
 
 The first run will automatically download the Qwen2.5-Coder 7B model (~4.5GB, one-time).
