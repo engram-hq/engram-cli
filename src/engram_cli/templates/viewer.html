@@ -689,6 +689,26 @@ html, body {
   font-size: 14px;
   gap: 8px;
 }
+
+/* Org cloud tooltip */
+.cloud-tooltip {
+  position: fixed;
+  pointer-events: none;
+  z-index: 100;
+  background: rgba(9,9,11,0.95);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  color: #fafafa;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+  max-width: 240px;
+  display: none;
+}
+.cloud-tooltip .ct-org { font-weight: 700; margin-bottom: 4px; }
+.cloud-tooltip .ct-row { font-size: 11px; color: #a1a1aa; line-height: 1.6; }
+.cloud-tooltip .ct-hint { font-size: 10px; color: #71717a; margin-top: 4px; }
 </style>
 </head>
 <body>
@@ -748,7 +768,7 @@ html, body {
           <button class="timeline-btn" id="btn-particles" onclick="toggleParticles()">Particles</button>
           <button class="timeline-btn" onclick="resetCamera()">Reset view</button>
         </div>
-        <div class="tl-legend">&#9679; Memory &nbsp; &#9670; Skill &nbsp; # = chronological order</div>
+        <div class="tl-legend">&#9679; Memory &nbsp; &#9670; Skill &nbsp; # = chronological order &nbsp; &#9675; Cloud = org cluster</div>
       </div>
       <!-- Right: Detail panel -->
       <div class="tl-right" id="tl-right-panel">
@@ -798,6 +818,12 @@ let orgColors = {};
 let forceGraph = null;
 let autoRotate = true;
 let particlesEnabled = true;
+
+// Org cloud bubbles
+let orgClouds = null;       // THREE.Group holding cloud meshes
+let cloudMetrics = {};      // org -> { skills, memories, totalWords, avgWords }
+let hoveredCloud = null;    // currently highlighted cloud mesh
+let cloudTooltipEl = null;  // tooltip DOM element
 
 const ORG_PALETTE = [
   '#3b82f6', '#8b5cf6', '#22c55e', '#f59e0b', '#f43f5e',
@@ -1238,6 +1264,9 @@ function initTimeline() {
   setTimeout(() => {
     forceGraph.zoomToFit(800, 80);
   }, 2000);
+
+  // Create org cloud bubbles after graph settles
+  setTimeout(createOrgClouds, 2200);
 }
 
 function toggleRotate() {
@@ -1263,6 +1292,7 @@ function resetCamera() {
   if (forceGraph) {
     forceGraph.zoomToFit(600, 80);
   }
+  showAllClouds();
 }
 
 function flyToNode(node) {
@@ -1291,6 +1321,13 @@ function flyToOrg(orgName) {
   const targets = gdata.nodes.filter(n => n.org === orgName);
   if (!targets.length) return;
 
+  // Hide all clouds when zooming into a specific org
+  if (orgClouds) {
+    orgClouds.children.forEach(m => { m.visible = false; });
+  }
+  if (cloudTooltipEl) cloudTooltipEl.style.display = 'none';
+  if (hoveredCloud) { hoveredCloud.material.opacity = 0.15; hoveredCloud = null; }
+
   const cx = targets.reduce((s, n) => s + (n.x || 0), 0) / targets.length;
   const cy = targets.reduce((s, n) => s + (n.y || 0), 0) / targets.length;
   const cz = targets.reduce((s, n) => s + (n.z || 0), 0) / targets.length;
@@ -1314,6 +1351,12 @@ function flyToOrg(orgName) {
 
   forceGraph.cameraPosition(camPos, { x: cx, y: cy, z: cz }, 800);
   setTimeout(() => { if (controls) controls.autoRotate = autoRotate; }, 1200);
+}
+
+function showAllClouds() {
+  if (orgClouds) {
+    orgClouds.children.forEach(m => { m.visible = true; });
+  }
 }
 
 function focusNode(index) {
@@ -1346,6 +1389,192 @@ function focusNode(index) {
     itemIndex: index,
     chronoNum: index + 1,
   }, false);
+}
+
+// ============================================================
+// Org Cloud Bubbles
+// ============================================================
+function createOrgClouds() {
+  if (!forceGraph) return;
+  const scene = forceGraph.scene();
+  if (!scene) return;
+
+  // Remove old clouds if any
+  if (orgClouds) {
+    scene.remove(orgClouds);
+    orgClouds = null;
+  }
+
+  const gdata = forceGraph.graphData();
+  if (!gdata || !gdata.nodes.length) return;
+
+  // Group nodes by org
+  const orgNodeMap = {};
+  gdata.nodes.forEach(n => {
+    if (!orgNodeMap[n.org]) orgNodeMap[n.org] = [];
+    orgNodeMap[n.org].push(n);
+  });
+
+  // Compute metrics from allItems
+  cloudMetrics = {};
+  allItems.forEach(item => {
+    if (!cloudMetrics[item.org]) cloudMetrics[item.org] = { skills: 0, memories: 0, totalWords: 0, count: 0 };
+    if (item.type === 'skill') cloudMetrics[item.org].skills++;
+    else cloudMetrics[item.org].memories++;
+    cloudMetrics[item.org].totalWords += item.wordCount;
+    cloudMetrics[item.org].count++;
+  });
+  Object.values(cloudMetrics).forEach(m => {
+    m.avgWords = m.count > 0 ? Math.round(m.totalWords / m.count) : 0;
+  });
+
+  orgClouds = new THREE.Group();
+
+  Object.entries(orgNodeMap).forEach(([org, nodes]) => {
+    if (nodes.length < 1) return;
+
+    // Compute centroid
+    let cx = 0, cy = 0, cz = 0;
+    nodes.forEach(n => { cx += (n.x || 0); cy += (n.y || 0); cz += (n.z || 0); });
+    cx /= nodes.length; cy /= nodes.length; cz /= nodes.length;
+
+    // Compute radius (max distance from centroid + padding)
+    let maxDist = 0;
+    nodes.forEach(n => {
+      const d = Math.hypot((n.x || 0) - cx, (n.y || 0) - cy, (n.z || 0) - cz);
+      if (d > maxDist) maxDist = d;
+    });
+    const radius = Math.max(maxDist + 25, 15);
+
+    const color = new THREE.Color(orgColors[org] || '#71717a');
+    const geo = new THREE.SphereGeometry(radius, 32, 24);
+
+    const mat = new THREE.MeshBasicMaterial({
+      color: color,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.15,
+      depthWrite: false,
+    });
+
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(cx, cy, cz);
+    mesh.renderOrder = -1;
+    mesh.userData = { org: org, isOrgCloud: true, cloudRadius: radius };
+    orgClouds.add(mesh);
+  });
+
+  scene.add(orgClouds);
+
+  // Create tooltip element if needed
+  if (!cloudTooltipEl) {
+    cloudTooltipEl = document.createElement('div');
+    cloudTooltipEl.className = 'cloud-tooltip';
+    document.body.appendChild(cloudTooltipEl);
+  }
+
+  // Track mouse globally — independent of ForceGraph3D events
+  window._cloudMouseX = 0;
+  window._cloudMouseY = 0;
+  window._cloudMouseClick = false;
+  window.addEventListener('mousemove', function(e) {
+    window._cloudMouseX = e.clientX;
+    window._cloudMouseY = e.clientY;
+  });
+  window.addEventListener('click', function() {
+    window._cloudMouseClick = true;
+  });
+
+  // Start polling loop
+  cloudPollLoop();
+}
+
+function cloudPollLoop() {
+  requestAnimationFrame(cloudPollLoop);
+  if (!forceGraph || !orgClouds) {
+    if (cloudTooltipEl) cloudTooltipEl.style.display = 'none';
+    return;
+  }
+
+  const container = document.getElementById('timeline-graph');
+  if (!container) return;
+  const rect = container.getBoundingClientRect();
+  const mx = window._cloudMouseX;
+  const my = window._cloudMouseY;
+
+  if (mx < rect.left || mx > rect.right || my < rect.top || my > rect.bottom) {
+    if (hoveredCloud) { hoveredCloud.material.opacity = 0.15; hoveredCloud = null; }
+    if (cloudTooltipEl) cloudTooltipEl.style.display = 'none';
+    window._cloudMouseClick = false;
+    return;
+  }
+
+  const mouseX = mx - rect.left;
+  const mouseY = my - rect.top;
+  const w = rect.width, h = rect.height;
+
+  let bestMesh = null, bestDist = Infinity;
+
+  for (const mesh of orgClouds.children) {
+    if (!mesh.visible || !mesh.userData.isOrgCloud) continue;
+
+    // Use ForceGraph3D's built-in projection (handles all internal transforms)
+    const pos = mesh.position;
+    const sc = forceGraph.graph2ScreenCoords(pos.x, pos.y, pos.z);
+    const sx = sc.x;
+    const sy = sc.y;
+
+    // Skip if way off-screen
+    if (sx < -300 || sx > w + 300 || sy < -300 || sy > h + 300) continue;
+
+    // Screen radius: project offset points in both axes, take max (handles any camera angle)
+    const r3d = mesh.userData.cloudRadius || 30;
+    const edgeSc = forceGraph.graph2ScreenCoords(pos.x + r3d, pos.y, pos.z);
+    const edgeSc2 = forceGraph.graph2ScreenCoords(pos.x, pos.y + r3d, pos.z);
+    const screenRadius = Math.max(
+      Math.hypot(edgeSc.x - sx, edgeSc.y - sy),
+      Math.hypot(edgeSc2.x - sx, edgeSc2.y - sy),
+      10
+    );
+
+    const dist = Math.hypot(mouseX - sx, mouseY - sy);
+    if (dist < screenRadius && dist < bestDist) {
+      bestDist = dist;
+      bestMesh = mesh;
+    }
+  }
+
+  // Handle click
+  if (window._cloudMouseClick) {
+    window._cloudMouseClick = false;
+    if (bestMesh && bestMesh.userData.isOrgCloud) {
+      flyToOrg(bestMesh.userData.org);
+      return;
+    }
+  }
+
+  // Handle hover
+  if (bestMesh) {
+    if (hoveredCloud && hoveredCloud !== bestMesh) hoveredCloud.material.opacity = 0.15;
+    hoveredCloud = bestMesh;
+    bestMesh.material.opacity = 0.3;
+
+    const org = bestMesh.userData.org;
+    const m = cloudMetrics[org] || {};
+    const color = orgColors[org] || '#71717a';
+    cloudTooltipEl.innerHTML =
+      '<div class="ct-org" style="color:' + color + ';">' + escapeHtml(org) + '</div>' +
+      '<div class="ct-row">Skills: ' + (m.skills || 0) + ' &middot; Memories: ' + (m.memories || 0) + '</div>' +
+      '<div class="ct-row">Total words: ' + ((m.totalWords || 0).toLocaleString()) + '</div>' +
+      '<div class="ct-row">Avg words/item: ' + ((m.avgWords || 0).toLocaleString()) + '</div>' +
+      '<div class="ct-hint">Click to zoom into org</div>';
+    cloudTooltipEl.style.display = 'block';
+    cloudTooltipEl.style.left = (mx + 14) + 'px';
+    cloudTooltipEl.style.top = (my + 14) + 'px';
+  } else {
+    if (hoveredCloud) { hoveredCloud.material.opacity = 0.15; hoveredCloud = null; }
+    if (cloudTooltipEl) cloudTooltipEl.style.display = 'none';
+  }
 }
 
 function buildTimelineOrgTree() {
