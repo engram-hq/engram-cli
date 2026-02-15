@@ -1,3 +1,3 @@
 """Engram CLI - AI-powered skill & memory generator for codebases."""
 
-__version__ = "2.1.1"
+__version__ = "2.1.2"

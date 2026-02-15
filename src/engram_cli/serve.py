@@ -37,16 +37,14 @@ def _load_analysis_data(data_dir: Path) -> dict[str, Any]:
             "model_used": data.get("model_used", ""),
         }
 
-    # Case 2: data_dir contains subdirectories (each an analyzed repo)
+    # Case 2: data_dir contains subdirectories (walk up to 3 levels deep)
     all_skills = []
     all_memories = []
-    for sub in sorted(data_dir.iterdir()):
-        sub_json = sub / "engram-analysis.json"
-        if sub.is_dir() and sub_json.exists():
-            with open(sub_json) as f:
-                data = json.load(f)
-            all_skills.extend(data.get("skills", []))
-            all_memories.extend(data.get("memories", []))
+    for json_path in sorted(data_dir.rglob("engram-analysis.json")):
+        with open(json_path) as f:
+            data = json.load(f)
+        all_skills.extend(data.get("skills", []))
+        all_memories.extend(data.get("memories", []))
 
     if all_skills or all_memories:
         return {

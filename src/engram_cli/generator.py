@@ -102,8 +102,13 @@ class SkillMemoryGenerator:
         start = time.time()
 
         result = GenerationResult(model_used=self.client.model)
-        org = self.org_name or analysis.name
-        repo = analysis.name
+        org_name = self.org_name or analysis.name
+        # Split "owner/repo" into separate org and repo
+        if "/" in org_name:
+            org, repo = org_name.split("/", 1)
+        else:
+            org = org_name
+            repo = analysis.name
         today = datetime.date.today().isoformat()
         context = analysis.summary_for_prompt()
 

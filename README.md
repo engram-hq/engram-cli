@@ -99,6 +99,25 @@ engram-output/myrepo/
         └── 2026-02-13-myrepo-activity.md    # Recent activity analysis
 ```
 
+## Visual Browser
+
+After analyzing repos, browse results in a local web UI with 5 tabs: Skills, Timeline (3D graph), Search, Analytics, and Sync.
+
+```bash
+# Analyze a few repos first
+engram analyze .
+engram analyze https://github.com/fastapi/fastapi
+
+# Open the visual browser (auto-opens in your default browser)
+engram browse
+
+# Or start the server without opening browser
+engram serve
+# Then open http://localhost:8420
+```
+
+The viewer aggregates all repos in `engram-output/` into a single dashboard. Fully air-gapped - no network requests except for loading the 3D graph library.
+
 ## How it works
 
 ### Layer 1: Heuristic Analysis (instant, no model)
