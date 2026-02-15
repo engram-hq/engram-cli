@@ -37,7 +37,7 @@ def _clone_repo(url: str, dest: Path) -> Path:
 
     match = re.match(r"(?:https?://)?github\.com/([^/]+)/([^/\s#?]+)", url)
     if match:
-        repo = match.group(2).rstrip(".git")
+        repo = match.group(2).removesuffix(".git")
         clone_dir = dest / repo
     else:
         clone_dir = dest / "repo"
@@ -75,7 +75,7 @@ def _resolve_repo_path(target: str) -> tuple[Path, str | None, bool]:
 
         match = re.match(r"(?:https?://)?(?:github\.com/)?([^/]+)/([^/\s#?]+)", target)
         if match:
-            owner, repo = match.group(1), match.group(2).rstrip(".git")
+            owner, repo = match.group(1), match.group(2).removesuffix(".git")
             url = f"https://github.com/{owner}/{repo}.git"
             tmpdir = Path(tempfile.mkdtemp(prefix="engram-"))
             clone_path = _clone_repo(url, tmpdir)
