@@ -10,7 +10,7 @@ Point Engram at any codebase and it generates structured **skills** (architectur
 $ engram analyze fastapi/fastapi
 
 ╭────────────────────────────────────────╮
-│ Engram v2.0.0 - Local AI Code Analyzer │
+│ Engram v2.1.0 - Local AI Code Analyzer │
 ╰────────────────────────────────────────╯
 
 Phase 1: Heuristic Analysis
@@ -70,6 +70,15 @@ engram analyze . --json-only | jq '.skills | length'
 
 # List recommended models
 engram models
+
+# Browse analysis results in a local web viewer
+engram browse
+
+# Start the viewer server without opening browser
+engram serve
+
+# Check version
+engram version
 ```
 
 ## Output
