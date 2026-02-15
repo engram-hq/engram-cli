@@ -1466,11 +1466,11 @@ function createOrgClouds() {
 
   scene.add(orgClouds);
 
-  // Create tooltip element if needed
+  // Create tooltip inside graph container (inherits stacking context — no z-index wars)
   if (!cloudTooltipEl) {
     cloudTooltipEl = document.createElement('div');
     cloudTooltipEl.className = 'cloud-tooltip';
-    document.body.appendChild(cloudTooltipEl);
+    (document.getElementById('timeline-graph') || document.body).appendChild(cloudTooltipEl);
   }
 
   // Track mouse globally — independent of ForceGraph3D events
