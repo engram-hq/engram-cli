@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from engram_cli.analyzer import analyze_repo
+from engram_cli.discovery import DiscoveredItem, ExistingKnowledge
 from engram_cli.generator import (
     SkillMemoryGenerator,
     GenerationResult,
@@ -133,6 +134,39 @@ def sample_repo(tmp_path):
     return tmp_path
 
 
+@pytest.fixture
+def existing_knowledge():
+    """Create sample existing knowledge for additive tests."""
+    return ExistingKnowledge(
+        skills=[
+            DiscoveredItem(
+                path="architecture/SKILL.md",
+                kind="skill",
+                content="---\nname: test-architecture\n---\n\n# Architecture\n\n"
+                "## Overview\nOld architecture description.\n",
+                source="repo",
+                tier=2,
+            ),
+            DiscoveredItem(
+                path="patterns/SKILL.md",
+                kind="skill",
+                content="---\nname: test-patterns\n---\n\n# Patterns\n\n"
+                "## Code Organization\nOld patterns.\n",
+                source="repo",
+                tier=2,
+            ),
+        ],
+        memories=[
+            DiscoveredItem(
+                path="sessions/2026-01-01-test-overview.md",
+                kind="memory",
+                content="---\ndate: 2026-01-01\n---\n\n# Session: Old Overview\n",
+                source="repo",
+            ),
+        ],
+    )
+
+
 class TestSkillMemoryGenerator:
     """Test the generator with mocked model."""
 
@@ -186,6 +220,7 @@ class TestSkillMemoryGenerator:
         assert "skills" in d
         assert "memories" in d
         assert "model_used" in d
+        assert "mode" in d
         assert all(isinstance(s, dict) for s in d["skills"])
 
     def test_progress_callback(self, mock_client, sample_repo):
@@ -210,6 +245,90 @@ class TestSkillMemoryGenerator:
 
         assert len(result.errors) > 0
         assert "Model crashed" in result.errors[0]
+
+
+class TestAdditiveGeneration:
+    """Test additive (incremental) generation with existing knowledge."""
+
+    def test_fresh_mode_without_existing(self, mock_client, sample_repo):
+        analysis = analyze_repo(sample_repo)
+        generator = SkillMemoryGenerator(mock_client, org_name="test-org")
+        result = generator.generate(analysis)
+        assert result.mode == "fresh"
+
+    def test_fresh_mode_with_empty_existing(self, mock_client, sample_repo):
+        analysis = analyze_repo(sample_repo)
+        generator = SkillMemoryGenerator(
+            mock_client, org_name="test-org", existing=ExistingKnowledge()
+        )
+        result = generator.generate(analysis)
+        assert result.mode == "fresh"
+
+    def test_additive_mode_with_existing(self, mock_client, sample_repo, existing_knowledge):
+        analysis = analyze_repo(sample_repo)
+        generator = SkillMemoryGenerator(
+            mock_client, org_name="test-org", existing=existing_knowledge
+        )
+        result = generator.generate(analysis)
+        assert result.mode == "additive"
+
+    def test_additive_passes_existing_to_prompt(self, mock_client, sample_repo, existing_knowledge):
+        """Verify that existing content is included in the prompt sent to the model."""
+        analysis = analyze_repo(sample_repo)
+        generator = SkillMemoryGenerator(
+            mock_client, org_name="test-org", existing=existing_knowledge
+        )
+        generator.generate(analysis)
+
+        # Check that at least one call included existing content
+        calls = mock_client.generate.call_args_list
+        prompts = [call.args[0] if call.args else call.kwargs.get("prompt", "") for call in calls]
+        # Architecture prompt should mention ADDITIVE or existing
+        arch_prompts = [p for p in prompts if "architecture" in p.lower()]
+        assert len(arch_prompts) >= 1
+        assert "ADDITIVE" in arch_prompts[0] or "existing" in arch_prompts[0].lower()
+
+    def test_additive_uses_additive_system_prompt(self, mock_client, sample_repo, existing_knowledge):
+        """Verify that the additive system prompt is used."""
+        analysis = analyze_repo(sample_repo)
+        generator = SkillMemoryGenerator(
+            mock_client, org_name="test-org", existing=existing_knowledge
+        )
+        generator.generate(analysis)
+
+        calls = mock_client.generate.call_args_list
+        systems = [call.kwargs.get("system", "") for call in calls]
+        # At least one call should use the additive system prompt
+        assert any("updating EXISTING" in s for s in systems)
+
+    def test_additive_still_produces_output(self, mock_client, sample_repo, existing_knowledge):
+        """Additive mode should still produce skills and memories."""
+        analysis = analyze_repo(sample_repo)
+        generator = SkillMemoryGenerator(
+            mock_client, org_name="test-org", existing=existing_knowledge
+        )
+        result = generator.generate(analysis)
+        assert len(result.skills) >= 2
+        assert len(result.memories) >= 1
+
+    def test_get_existing_content_pattern_match(self, mock_client, existing_knowledge):
+        generator = SkillMemoryGenerator(
+            mock_client, org_name="test-org", existing=existing_knowledge
+        )
+        content = generator._get_existing_content("architecture")
+        assert "Old architecture description" in content
+
+    def test_get_existing_content_no_match(self, mock_client, existing_knowledge):
+        generator = SkillMemoryGenerator(
+            mock_client, org_name="test-org", existing=existing_knowledge
+        )
+        content = generator._get_existing_content("nonexistent")
+        assert content == ""
+
+    def test_get_existing_content_no_existing(self, mock_client):
+        generator = SkillMemoryGenerator(mock_client, org_name="test-org")
+        content = generator._get_existing_content("architecture")
+        assert content == ""
 
 
 class TestEnsureFrontmatter:
