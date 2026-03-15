@@ -2,6 +2,9 @@
 
 Each template takes heuristic analysis context and generates
 a focused, structured prompt for the local model.
+
+Supports additive mode: when existing skills/memories are provided,
+prompts instruct the model to build upon them rather than starting fresh.
 """
 
 from __future__ import annotations
@@ -13,16 +16,48 @@ Be specific about patterns, trade-offs, and design decisions.
 Use concrete details from the provided analysis data.
 Write in a professional technical style, not promotional."""
 
+ADDITIVE_SYSTEM_PROMPT = """You are an expert software architect analyzing codebases.
+You are updating EXISTING documentation with new insights from a fresh analysis.
+Your job is to MERGE: preserve what is still accurate, update what has changed,
+and add net-new insights that the existing docs are missing.
+Do NOT simply rewrite from scratch — build on what exists.
+Focus on architectural insights, not obvious facts.
+Use concrete details from the provided analysis data.
+Write in a professional technical style, not promotional."""
 
-def architecture_skill_prompt(context: str, readme_excerpt: str = "") -> str:
+
+def _additive_instructions(existing_content: str, doc_type: str) -> str:
+    """Build additive-mode instructions block for a prompt."""
+    if not existing_content:
+        return ""
+    return f"""
+EXISTING {doc_type.upper()} (build upon this — update stale parts, add missing insights, preserve accurate content):
+{existing_content}
+
+IMPORTANT: You are in ADDITIVE mode. Do NOT generate from scratch.
+- Keep sections and insights from the existing document that are still accurate
+- Update any information that has changed based on the fresh analysis
+- Add new sections or bullet points for insights the existing doc is missing
+- Remove information that is clearly outdated or wrong
+- Maintain the same structure and formatting style as the existing document
+"""
+
+
+def architecture_skill_prompt(
+    context: str,
+    readme_excerpt: str = "",
+    existing_content: str = "",
+) -> str:
     """Generate prompt for architecture skill."""
+    additive = _additive_instructions(existing_content, "architecture skill")
+
     return f"""Analyze this repository and write a concise architecture skill document.
 
 REPOSITORY ANALYSIS:
 {context}
 
 {f"README EXCERPT:{chr(10)}{readme_excerpt[:1500]}" if readme_excerpt else ""}
-
+{additive}
 Write a skill document with this EXACT structure (include the YAML frontmatter):
 
 ---
@@ -51,15 +86,21 @@ last_updated: <today's date>
 Keep it under 600 words. Focus on insights an engineer needs to understand the codebase quickly."""
 
 
-def patterns_skill_prompt(context: str, key_files_summary: str = "") -> str:
+def patterns_skill_prompt(
+    context: str,
+    key_files_summary: str = "",
+    existing_content: str = "",
+) -> str:
     """Generate prompt for patterns/conventions skill."""
+    additive = _additive_instructions(existing_content, "patterns skill")
+
     return f"""Analyze this repository's patterns and conventions.
 
 REPOSITORY ANALYSIS:
 {context}
 
 {f"KEY FILES:{chr(10)}{key_files_summary[:2000]}" if key_files_summary else ""}
-
+{additive}
 Write a skill document with this EXACT structure:
 
 ---
@@ -88,13 +129,18 @@ last_updated: <today's date>
 Keep it under 500 words. Be specific to THIS project, not generic advice."""
 
 
-def testing_skill_prompt(context: str) -> str:
+def testing_skill_prompt(
+    context: str,
+    existing_content: str = "",
+) -> str:
     """Generate prompt for testing skill."""
+    additive = _additive_instructions(existing_content, "testing skill")
+
     return f"""Analyze the testing infrastructure of this repository.
 
 REPOSITORY ANALYSIS:
 {context}
-
+{additive}
 Write a skill document with this EXACT structure:
 
 ---
@@ -123,15 +169,29 @@ last_updated: <today's date>
 Keep it under 400 words."""
 
 
-def overview_memory_prompt(context: str, readme_excerpt: str = "") -> str:
+def overview_memory_prompt(
+    context: str,
+    readme_excerpt: str = "",
+    existing_content: str = "",
+) -> str:
     """Generate prompt for project overview memory (session-style)."""
-    return f"""You explored this repository. Write a session memory documenting your findings.
+    additive = _additive_instructions(existing_content, "overview memory")
+
+    if existing_content:
+        session_instruction = (
+            "You are RE-EXPLORING this repository with fresh data. "
+            "Reference your previous exploration and note what has changed."
+        )
+    else:
+        session_instruction = "You explored this repository."
+
+    return f"""{session_instruction} Write a session memory documenting your findings.
 
 REPOSITORY ANALYSIS:
 {context}
 
 {f"README:{chr(10)}{readme_excerpt[:1500]}" if readme_excerpt else ""}
-
+{additive}
 Write a session memory with this EXACT structure:
 
 ---
@@ -166,8 +226,14 @@ output_tokens: 0
 Keep it under 500 words. Write as if documenting a real exploration session."""
 
 
-def activity_memory_prompt(context: str, commits_text: str) -> str:
+def activity_memory_prompt(
+    context: str,
+    commits_text: str,
+    existing_content: str = "",
+) -> str:
     """Generate prompt for recent activity memory."""
+    additive = _additive_instructions(existing_content, "activity memory")
+
     return f"""Analyze the recent commit activity for this repository.
 
 REPOSITORY ANALYSIS:
@@ -175,7 +241,7 @@ REPOSITORY ANALYSIS:
 
 RECENT COMMITS:
 {commits_text[:3000]}
-
+{additive}
 Write a session memory with this EXACT structure:
 
 ---

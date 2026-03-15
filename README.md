@@ -6,29 +6,34 @@ AI-powered skill & memory generator for codebases. Fully local, no API keys need
 
 Point Engram at any codebase and it generates structured **skills** (architectural knowledge) and **memories** (exploration sessions) using a local AI model. Zero API cost, fully air-gapped.
 
-```
-$ engram analyze fastapi/fastapi
+**New in v3.0:** Engram now performs **additive analysis** — it discovers existing skills and memories in your repo and builds upon them, instead of generating from scratch every time.
 
-╭────────────────────────────────────────╮
-│ Engram v2.1.3 - Local AI Code Analyzer │
-╰────────────────────────────────────────╯
+```
+$ engram analyze .
+
+╭───────────────────────────────────────╮
+│ Engram v3.0.0 - Local AI Code Analyzer │
+╰───────────────────────────────────────╯
 
 Phase 1: Heuristic Analysis
   Languages: Python (89%), Markdown (6%), Shell (3%)
   Frameworks: FastAPI, Starlette, Pydantic, Uvicorn, pytest
   Patterns: REST API, Middleware, Documentation site
 
-Phase 2: Local Model Inference (qwen2.5-coder:7b)
+Discovery: Scanning for existing knowledge...
+  Found 4 existing skills and 6 existing memories - will use additive mode
+
+Phase 2: Local Model Inference (Additive mode)
   [1/5] Generating architecture skill...
   [2/5] Generating patterns skill...
   [3/5] Generating testing skill...
   [4/5] Generating project overview...
   [5/5] Generating activity analysis...
 
-╭───────── Results for fastapi/fastapi ──────────╮
-│ Generated 3 skills + 2 memories                │
+╭───────── Results for myproject ──────────╮
+│ Generated 3 skills + 2 memories (ADDITIVE) │
 │ Model: qwen2.5-coder:7b | Time: 42s | Cost: $0 │
-╰────────────────────────────────────────────────╯
+╰─────────────────────────────────────────╯
 ```
 
 ## Install
@@ -48,7 +53,7 @@ The first run will automatically download the Qwen2.5-Coder 7B model (~4.5GB, on
 ## Usage
 
 ```bash
-# Analyze current directory
+# Analyze current directory (auto-discovers existing skills/memories)
 engram analyze .
 
 # Analyze a GitHub repo
@@ -59,6 +64,9 @@ engram analyze pallets/flask
 
 # Specify org name for output
 engram analyze . --org mycompany/myrepo
+
+# Force fresh analysis (ignore existing skills/memories)
+engram analyze . --fresh
 
 # Use a larger model for better quality
 engram analyze . --model qwen2.5-coder:14b
@@ -82,6 +90,27 @@ engram serve
 engram version
 ```
 
+## Additive Analysis
+
+By default, Engram scans your repo for existing skills and memories before generating new ones. It searches:
+
+1. **Repo-level directories** — `.skills/`, `.memory/`, `skills/`, `memories/`
+2. **Org-level skills repos** — sibling `{org}-skills/` directories
+3. **Previous Engram output** — `engram-output/` from prior runs
+4. **Claude Code auto-memory** — `~/.claude/projects/*/memory/`
+
+When existing knowledge is found, Engram switches to **additive mode**:
+
+- Existing content is fed into the model prompts as context
+- The model is instructed to **update** stale information, **add** missing insights, and **preserve** what's still accurate
+- The result builds on your accumulated knowledge instead of replacing it
+
+Use `--fresh` to skip discovery and generate from scratch:
+
+```bash
+engram analyze . --fresh
+```
+
 ## Output
 
 By default, outputs both JSON and Markdown:
@@ -95,8 +124,8 @@ engram-output/myrepo/
 │   └── testing/SKILL.md          # Testing strategy (if tests detected)
 └── memories/
     └── sessions/
-        ├── 2026-02-13-myrepo-overview.md    # Project deep dive
-        └── 2026-02-13-myrepo-activity.md    # Recent activity analysis
+        ├── 2026-03-16-myrepo-overview.md    # Project deep dive
+        └── 2026-03-16-myrepo-activity.md    # Recent activity analysis
 ```
 
 ## Visual Browser
@@ -120,6 +149,11 @@ The viewer aggregates all repos in `engram-output/` into a single dashboard. Ful
 
 ## How it works
 
+### Layer 0: Discovery (instant, no model)
+- Scans repo, sibling org-skills repos, previous output, and Claude memory
+- Loads existing skill/memory content for additive context
+- Determines whether to use additive or fresh mode
+
 ### Layer 1: Heuristic Analysis (instant, no model)
 - Walks the file tree, counts files/extensions
 - Parses `package.json`, `Cargo.toml`, `go.mod`, `pyproject.toml` for dependencies
@@ -129,7 +163,8 @@ The viewer aggregates all repos in `engram-output/` into a single dashboard. Ful
 - Detects architectural patterns from directory structure
 
 ### Layer 2: Local Model Inference (~40s per repo)
-- Feeds heuristic context into structured prompts
+- Feeds heuristic context + existing knowledge into structured prompts
+- In additive mode, prompts instruct the model to merge with existing content
 - Qwen2.5-Coder 7B generates natural language skills and memories
 - Produces architecture overviews, pattern analysis, testing guides
 - Session memories document the exploration findings

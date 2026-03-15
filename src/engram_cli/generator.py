@@ -2,6 +2,9 @@
 
 Takes heuristic analysis, feeds into prompt templates,
 calls local model, returns structured skill/memory objects.
+
+Supports additive mode: when existing skills/memories are provided,
+generates updates that build upon them instead of starting from scratch.
 """
 
 from __future__ import annotations
@@ -11,8 +14,10 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .analyzer import RepoAnalysis
+from .discovery import ExistingKnowledge
 from .model import OllamaClient
 from .prompts import (
+    ADDITIVE_SYSTEM_PROMPT,
     SYSTEM_PROMPT,
     activity_memory_prompt,
     architecture_skill_prompt,
@@ -73,6 +78,7 @@ class GenerationResult:
     model_used: str = ""
     generation_time_seconds: float = 0.0
     errors: list[str] = field(default_factory=list)
+    mode: str = "fresh"  # "fresh" or "additive"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -81,15 +87,22 @@ class GenerationResult:
             "model_used": self.model_used,
             "generation_time_seconds": round(self.generation_time_seconds, 1),
             "errors": self.errors,
+            "mode": self.mode,
         }
 
 
 class SkillMemoryGenerator:
     """Generates skills and memories from repository analysis."""
 
-    def __init__(self, client: OllamaClient, org_name: str | None = None):
+    def __init__(
+        self,
+        client: OllamaClient,
+        org_name: str | None = None,
+        existing: ExistingKnowledge | None = None,
+    ):
         self.client = client
         self.org_name = org_name
+        self.existing = existing
 
     def generate(
         self,
@@ -101,7 +114,11 @@ class SkillMemoryGenerator:
 
         start = time.time()
 
-        result = GenerationResult(model_used=self.client.model)
+        is_additive = self.existing is not None and self.existing.has_existing
+        result = GenerationResult(
+            model_used=self.client.model,
+            mode="additive" if is_additive else "fresh",
+        )
         org_name = self.org_name or analysis.name
         # Split "owner/repo" into separate org and repo
         if "/" in org_name:
@@ -151,6 +168,33 @@ class SkillMemoryGenerator:
 
         return steps
 
+    def _get_existing_content(self, pattern: str) -> str:
+        """Get existing content matching a pattern for additive mode."""
+        if not self.existing or not self.existing.has_existing:
+            return ""
+
+        # Search skills first, then memories
+        items = self.existing.skills_by_kind(pattern)
+        if not items:
+            # Also check memories for memory-type patterns
+            items = [
+                m for m in self.existing.memories
+                if pattern.lower() in m.path.lower()
+            ]
+
+        if not items:
+            return ""
+
+        # Return the most recent/relevant item's content (first match)
+        return items[0].content[:4000]
+
+    @property
+    def _system_prompt(self) -> str:
+        """Return appropriate system prompt based on mode."""
+        if self.existing and self.existing.has_existing:
+            return ADDITIVE_SYSTEM_PROMPT
+        return SYSTEM_PROMPT
+
     def _gen_architecture(
         self,
         analysis: RepoAnalysis,
@@ -159,8 +203,11 @@ class SkillMemoryGenerator:
         repo: str,
         today: str,
     ) -> GeneratedSkill:
-        prompt = architecture_skill_prompt(context, analysis.readme_excerpt)
-        content = self.client.generate(prompt, system=SYSTEM_PROMPT)
+        existing = self._get_existing_content("architecture")
+        prompt = architecture_skill_prompt(
+            context, analysis.readme_excerpt, existing_content=existing
+        )
+        content = self.client.generate(prompt, system=self._system_prompt)
         content = _ensure_frontmatter(
             content,
             {
@@ -190,8 +237,11 @@ class SkillMemoryGenerator:
             f"--- {name} ---\n{content[:1000]}"
             for name, content in list(analysis.key_file_contents.items())[:3]
         )
-        prompt = patterns_skill_prompt(context, key_files)
-        content = self.client.generate(prompt, system=SYSTEM_PROMPT)
+        existing = self._get_existing_content("pattern")
+        prompt = patterns_skill_prompt(
+            context, key_files, existing_content=existing
+        )
+        content = self.client.generate(prompt, system=self._system_prompt)
         content = _ensure_frontmatter(
             content,
             {
@@ -217,8 +267,9 @@ class SkillMemoryGenerator:
         repo: str,
         today: str,
     ) -> GeneratedSkill:
-        prompt = testing_skill_prompt(context)
-        content = self.client.generate(prompt, system=SYSTEM_PROMPT)
+        existing = self._get_existing_content("testing")
+        prompt = testing_skill_prompt(context, existing_content=existing)
+        content = self.client.generate(prompt, system=self._system_prompt)
         content = _ensure_frontmatter(
             content,
             {
@@ -244,8 +295,11 @@ class SkillMemoryGenerator:
         repo: str,
         today: str,
     ) -> GeneratedMemory:
-        prompt = overview_memory_prompt(context, analysis.readme_excerpt)
-        content = self.client.generate(prompt, system=SYSTEM_PROMPT)
+        existing = self._get_existing_content("overview")
+        prompt = overview_memory_prompt(
+            context, analysis.readme_excerpt, existing_content=existing
+        )
+        content = self.client.generate(prompt, system=self._system_prompt)
         content = _ensure_frontmatter(
             content,
             {
@@ -276,8 +330,11 @@ class SkillMemoryGenerator:
             f"- {c['date']} {c['author']}: {c['message']}"
             for c in analysis.recent_commits[:20]
         )
-        prompt = activity_memory_prompt(context, commits_text)
-        content = self.client.generate(prompt, system=SYSTEM_PROMPT)
+        existing = self._get_existing_content("activity")
+        prompt = activity_memory_prompt(
+            context, commits_text, existing_content=existing
+        )
+        content = self.client.generate(prompt, system=self._system_prompt)
         content = _ensure_frontmatter(
             content,
             {

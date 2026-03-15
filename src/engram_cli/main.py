@@ -24,6 +24,7 @@ from rich.tree import Tree
 
 from . import __version__
 from .analyzer import analyze_repo
+from .discovery import discover_existing
 from .model import OllamaClient, ModelError, DEFAULT_MODEL
 from .generator import SkillMemoryGenerator
 
@@ -120,6 +121,9 @@ def cli():
 @click.option(
     "--skip-model", is_flag=True, help="Heuristic-only analysis, no model inference"
 )
+@click.option(
+    "--fresh", is_flag=True, help="Ignore existing skills/memories, generate from scratch"
+)
 def analyze(
     target: str,
     model: str,
@@ -128,10 +132,15 @@ def analyze(
     fmt: str,
     json_only: bool,
     skip_model: bool,
+    fresh: bool,
 ):
     """Analyze a repository and generate skills + memories.
 
     TARGET can be a local path, GitHub URL, or owner/repo shorthand.
+
+    By default, engram discovers existing skills and memories in your repo
+    and generates ADDITIVE updates that build upon them. Use --fresh to
+    start from scratch.
 
     Examples:
 
@@ -142,6 +151,8 @@ def analyze(
         engram analyze pallets/flask --org pallets
 
         engram analyze ./my-project --skip-model
+
+        engram analyze . --fresh
     """
     is_temp = False
     try:
@@ -169,6 +180,18 @@ def analyze(
         if not json_only:
             _print_analysis_summary(analysis)
 
+        # Discovery: find existing skills/memories
+        existing = None
+        if not fresh and not skip_model:
+            if not json_only:
+                console.print()
+                console.print("[bold]Discovery:[/] Scanning for existing knowledge...", style="cyan")
+
+            existing = discover_existing(repo_path, org_name=org)
+
+            if not json_only:
+                _print_discovery_summary(existing)
+
         if skip_model:
             # Output heuristic-only results
             result_dict = {
@@ -188,7 +211,11 @@ def analyze(
         # Phase 2: Model inference
         if not json_only:
             console.print()
-            console.print("[bold]Phase 2:[/] Local Model Inference", style="cyan")
+            mode_label = "Additive" if existing and existing.has_existing else "Fresh"
+            console.print(
+                f"[bold]Phase 2:[/] Local Model Inference ([bold]{mode_label}[/] mode)",
+                style="cyan",
+            )
 
         client = OllamaClient(model=model)
 
@@ -212,7 +239,7 @@ def analyze(
             )
 
         # Generate skills and memories
-        generator = SkillMemoryGenerator(client, org_name=org)
+        generator = SkillMemoryGenerator(client, org_name=org, existing=existing)
 
         with Progress(
             SpinnerColumn(),
@@ -233,7 +260,10 @@ def analyze(
 
         # Output
         if json_only:
-            click.echo(json.dumps(result.to_dict(), indent=2))
+            combined = result.to_dict()
+            if existing:
+                combined["existing_knowledge"] = existing.to_dict()
+            click.echo(json.dumps(combined, indent=2))
         else:
             _print_generation_result(result, org)
             if output or fmt in ("markdown", "both"):
@@ -424,6 +454,28 @@ def _print_analysis_summary(analysis) -> None:
     console.print(table)
 
 
+def _print_discovery_summary(existing) -> None:
+    """Print summary of discovered existing knowledge."""
+    if existing.has_existing:
+        console.print(
+            f"  Found [bold green]{len(existing.skills)} existing skills[/] "
+            f"and [bold green]{len(existing.memories)} existing memories[/] "
+            f"- will use [bold]additive[/] mode"
+        )
+        if existing.skills:
+            for s in existing.skills[:5]:
+                console.print(f"    [cyan]skill:[/] {s.path} (tier {s.tier}, {s.source})")
+            if len(existing.skills) > 5:
+                console.print(f"    [dim]... and {len(existing.skills) - 5} more[/]")
+        if existing.memories:
+            for m in existing.memories[:3]:
+                console.print(f"    [magenta]memory:[/] {m.path} ({m.source})")
+            if len(existing.memories) > 3:
+                console.print(f"    [dim]... and {len(existing.memories) - 3} more[/]")
+    else:
+        console.print("  No existing knowledge found - using [bold]fresh[/] mode")
+
+
 def _print_heuristic_summary(analysis) -> None:
     """Print detailed heuristic analysis when --skip-model is used."""
     if analysis.top_dirs:
@@ -441,10 +493,11 @@ def _print_heuristic_summary(analysis) -> None:
 
 def _print_generation_result(result, org: str) -> None:
     """Print generation results."""
+    mode_badge = "[bold green]ADDITIVE[/]" if result.mode == "additive" else "[bold]FRESH[/]"
     console.print()
     console.print(
         Panel.fit(
-            f"[bold green]Generated {len(result.skills)} skills + {len(result.memories)} memories[/]\n"
+            f"[bold green]Generated {len(result.skills)} skills + {len(result.memories)} memories[/] ({mode_badge})\n"
             f"Model: {result.model_used} | Time: {result.generation_time_seconds:.1f}s | Cost: $0.00",
             border_style="green",
             title=f"Results for {org}",
