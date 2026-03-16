@@ -39,16 +39,22 @@ Phase 2: Local Model Inference (Additive mode)
 ## Install
 
 ```bash
-# 1. Install Ollama (one-time)
-brew install ollama          # macOS
-# or: curl -fsSL https://ollama.com/install.sh | sh  # Linux
+# One-liner (installs pipx + engram + ollama as needed)
+curl -fsSL https://raw.githubusercontent.com/engram-hq/engram-cli/main/install.sh | bash
 
-# 2. Install Engram CLI
-brew install pipx && pipx install engram-cli   # macOS (recommended)
-# or: pip install engram-cli                   # Linux / virtualenv
+# Or manually:
+brew install ollama pipx       # macOS
+pipx install engram-cli
 ```
 
 The first run will automatically download the Qwen2.5-Coder 7B model (~4.5GB, one-time).
+
+### Upgrade
+
+```bash
+engram upgrade                 # built-in self-upgrade
+# or: pipx upgrade engram-cli
+```
 
 ## Usage
 

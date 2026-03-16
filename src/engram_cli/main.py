@@ -268,7 +268,7 @@ def analyze(
             _print_generation_result(result, org)
             if output or fmt in ("markdown", "both"):
                 out_dir = Path(output) if output else Path(f"engram-output/{org}")
-                _write_output(result, analysis, out_dir, fmt)
+                _write_output(result, analysis, out_dir, fmt, existing=existing)
                 console.print(f"\n[green]Output written to {out_dir}/[/]")
 
     finally:
@@ -394,6 +394,99 @@ def browse(data_dir: str, port: int):
     console.print()
 
     start_server(path, port=port, open_browser=True)
+
+
+@cli.command()
+def upgrade():
+    """Upgrade engram-cli to the latest version.
+
+    Detects whether engram was installed via pipx or pip, and runs the
+    appropriate upgrade command. Also ensures Ollama is installed.
+
+    Examples:
+
+        engram upgrade
+    """
+    import shutil as _shutil
+
+    console.print()
+    console.print(
+        Panel.fit(
+            f"[bold cyan]Engram Upgrade[/] - Current: v{__version__}",
+            border_style="cyan",
+        )
+    )
+
+    # Check latest version on PyPI
+    console.print("  Checking PyPI for latest version...")
+    try:
+        import httpx
+
+        resp = httpx.get("https://pypi.org/pypi/engram-cli/json", timeout=10)
+        if resp.status_code == 200:
+            latest = resp.json()["info"]["version"]
+            console.print(f"  Latest on PyPI: [bold]{latest}[/]")
+            if latest == __version__:
+                console.print("[green]  Already up to date![/]")
+                return
+            console.print(f"  Upgrading [yellow]v{__version__}[/] -> [green]v{latest}[/]")
+        else:
+            console.print("[yellow]  Could not check PyPI, attempting upgrade anyway...[/]")
+    except Exception:
+        console.print("[yellow]  Could not check PyPI, attempting upgrade anyway...[/]")
+
+    # Detect install method and upgrade
+    if _shutil.which("pipx"):
+        console.print("  Using [bold]pipx[/] to upgrade...")
+        result = subprocess.run(
+            ["pipx", "upgrade", "engram-cli"],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            console.print(f"[green]  {result.stdout.strip() or 'Upgraded successfully!'}[/]")
+        else:
+            # pipx upgrade fails if installed from local path; try reinstall
+            console.print("  pipx upgrade failed, trying reinstall from PyPI...")
+            result = subprocess.run(
+                ["pipx", "install", "engram-cli", "--force"],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                console.print(f"[green]  {result.stdout.strip() or 'Reinstalled successfully!'}[/]")
+            else:
+                console.print(f"[red]  Failed: {result.stderr.strip()[:200]}[/]")
+                return
+    else:
+        console.print("  Using [bold]pip[/] to upgrade...")
+        result = subprocess.run(
+            ["pip", "install", "--upgrade", "engram-cli"],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            console.print("[green]  Upgraded successfully![/]")
+        else:
+            console.print(f"[red]  Failed: {result.stderr.strip()[:200]}[/]")
+            return
+
+    # Verify
+    result = subprocess.run(
+        ["engram", "version"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode == 0:
+        console.print()
+        console.print(f"  [bold green]{result.stdout.strip()}[/]")
+
+    # Check Ollama
+    if not _shutil.which("ollama"):
+        console.print()
+        console.print("[yellow]  Ollama not found. Install:[/]")
+        console.print("    brew install ollama          [dim]# macOS[/]")
+        console.print("    curl -fsSL https://ollama.com/install.sh | sh  [dim]# Linux[/]")
 
 
 @cli.command()
@@ -525,20 +618,51 @@ def _print_generation_result(result, org: str) -> None:
             console.print(f"  [red]{e}[/]")
 
 
-def _write_output(result, analysis, out_dir: Path, fmt: str) -> None:
-    """Write output files."""
+def _write_output(result, analysis, out_dir: Path, fmt: str, existing=None) -> None:
+    """Write output files, including existing discovered knowledge."""
+    from .discovery import ExistingKnowledge
+
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    # Build combined skill/memory lists: existing + newly generated
+    all_skills = list(result.to_dict()["skills"])
+    all_memories = list(result.to_dict()["memories"])
+
+    if existing and existing.has_existing:
+        for item in existing.skills:
+            all_skills.append({
+                "org": result.skills[0].org if result.skills else "",
+                "repo": result.skills[0].repo if result.skills else "",
+                "tier": item.tier,
+                "path": f"existing/{item.path}",
+                "name": Path(item.path).stem,
+                "content": item.content,
+                "source": item.source,
+            })
+        for item in existing.memories:
+            all_memories.append({
+                "org": result.memories[0].org if result.memories else "",
+                "repo": result.memories[0].repo if result.memories else "",
+                "path": f"existing/{item.path}",
+                "name": Path(item.path).stem,
+                "content": item.content,
+                "source": item.source,
+            })
+
     if fmt in ("json", "both"):
-        # Write combined JSON
         combined = {
             "analysis": analysis.to_dict(),
-            **result.to_dict(),
+            "skills": all_skills,
+            "memories": all_memories,
+            "model_used": result.model_used,
+            "generation_time_seconds": round(result.generation_time_seconds, 1),
+            "errors": result.errors,
+            "mode": result.mode,
         }
         (out_dir / "engram-analysis.json").write_text(json.dumps(combined, indent=2))
 
     if fmt in ("markdown", "both"):
-        # Write individual skill files
+        # Write individual skill files (generated + existing)
         skills_dir = out_dir / "skills"
         skills_dir.mkdir(exist_ok=True)
         for s in result.skills:
@@ -546,13 +670,25 @@ def _write_output(result, analysis, out_dir: Path, fmt: str) -> None:
             skill_path.parent.mkdir(parents=True, exist_ok=True)
             skill_path.write_text(s.content)
 
-        # Write individual memory files
+        if existing and existing.has_existing:
+            for item in existing.skills:
+                skill_path = skills_dir / "existing" / item.path
+                skill_path.parent.mkdir(parents=True, exist_ok=True)
+                skill_path.write_text(item.content)
+
+        # Write individual memory files (generated + existing)
         memories_dir = out_dir / "memories"
         memories_dir.mkdir(exist_ok=True)
         for m in result.memories:
             mem_path = memories_dir / m.path
             mem_path.parent.mkdir(parents=True, exist_ok=True)
             mem_path.write_text(m.content)
+
+        if existing and existing.has_existing:
+            for item in existing.memories:
+                mem_path = memories_dir / "existing" / item.path
+                mem_path.parent.mkdir(parents=True, exist_ok=True)
+                mem_path.write_text(item.content)
 
 
 if __name__ == "__main__":
